@@ -1,0 +1,16 @@
+# Python virtual environment
+Lib/
+Scripts/
+Include/
+pyvenv.cfg
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# pytest
+.pytest_cache/
+
+# Claude Code
+.claude/
