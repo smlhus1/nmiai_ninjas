@@ -27,7 +27,8 @@ Coordinator (bot/coordinator.py) --- owns persistent state
     +-- WorldModel (bot/engine/world_model.py) --- enriched queries
     |
     +-- TaskPlanner (bot/strategy/planner.py) --- assigns tasks to bots
-    |   +-- Hungarian (bot/strategy/hungarian.py) --- optimal assignment
+    |   +-- RouteBuilder (bot/strategy/route_builder.py) --- multi-item route candidates
+    |   +-- Hungarian (bot/strategy/hungarian.py) --- optimal bot-to-route matching
     |
     +-- ActionResolver (bot/strategy/action_resolver.py) --- tasks -> actions via PIBT
 ```
@@ -44,9 +45,10 @@ nmiai/
       pibt.py                       # PIBT collision resolution
       world_model.py                # Enriched world queries + endgame detection
     strategy/
-      task.py                       # Task/BotAssignment definitions (PICK_UP, DELIVER, PRE_PICK, IDLE)
-      planner.py                    # Strategic task assignment (active, preview, endgame)
-      hungarian.py                  # Optimal bot-item matching via scipy
+      task.py                       # Task/BotAssignment/Route/RouteStop definitions
+      route_builder.py              # Multi-item route candidate generation
+      planner.py                    # Strategic task assignment (active, preview, endgame, route tracking)
+      hungarian.py                  # Optimal bot-to-route matching via scipy
       action_resolver.py            # Tactical action generation via PIBT
   tests/
     test_models.py
@@ -54,6 +56,7 @@ nmiai/
     test_coordinator.py
     test_pibt.py
     test_hungarian.py
+    test_routes.py
 ```
 
 ## Key design decisions
@@ -61,7 +64,8 @@ nmiai/
 - **Sticky assignments**: bots keep tasks until completed or invalidated
 - **No double-booking**: TaskPlanner tracks claimed items globally (PICK_UP + PRE_PICK)
 - **PIBT collision resolution**: cooperative movement eliminates deadlocks in narrow corridors
-- **Hungarian assignment**: globally optimal bot-to-item matching via scipy
+- **Multi-item routes**: bots plan routes (1-3 items) and deliver in one trip instead of per-item
+- **Hungarian assignment**: globally optimal bot-to-route matching via scipy
 - **Navigation override**: staging bots use override, never mutate Task.target_pos
 - **Bot ID priority**: low-ID bots get critical tasks (collision right-of-way)
 - **Endgame mode**: last ~40 rounds, abandon incomplete orders, maximize items/round

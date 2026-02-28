@@ -83,7 +83,7 @@ class PathEngine:
             obstacles = obstacles | extra_obstacles
 
         # A* search
-        # Priority queue: (f_score, counter, position, path)
+        # Priority queue: (f_score, counter, position)
         counter = 0
         open_set: list[tuple[int, int, Pos]] = [(0, counter, start)]
         came_from: dict[Pos, Pos] = {}

@@ -10,7 +10,7 @@ reassigned). This prevents flip-flopping.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
 
@@ -46,9 +46,32 @@ class Task:
     def __repr__(self) -> str:
         if self.task_type == TaskType.PICK_UP:
             return f"Task(PICK_UP {self.item_type} @ {self.target_pos})"
+        elif self.task_type == TaskType.PRE_PICK:
+            return f"Task(PRE_PICK {self.item_type} @ {self.target_pos})"
         elif self.task_type == TaskType.DELIVER:
             return f"Task(DELIVER @ {self.target_pos})"
         return "Task(IDLE)"
+
+
+@dataclass
+class RouteStop:
+    """One item to pick up on a route."""
+    item_id: str
+    item_type: str
+    item_pos: Pos       # Shelf position (may not be walkable)
+    pickup_pos: Pos     # Walkable cell adjacent to shelf
+
+
+@dataclass
+class Route:
+    """A sequence of items to pick up, then deliver."""
+    stops: list[RouteStop] = field(default_factory=list)
+    order_id: Optional[str] = None
+    total_cost: float = 0.0  # Estimated total distance for full route + delivery
+
+    @property
+    def item_ids(self) -> set[str]:
+        return {s.item_id for s in self.stops}
 
 
 @dataclass
@@ -62,11 +85,21 @@ class BotAssignment:
     task: Optional[Task] = None
     path: list[Pos] | None = None  # Pre-computed path to target
     navigation_override: Optional[Pos] = None  # Temporary nav target (e.g. staging)
+    route: Optional[Route] = None      # Planned multi-item route
+    route_step: int = 0                # Current stop index in route
 
     def clear(self) -> None:
         self.task = None
         self.path = None
         self.navigation_override = None
+        self.route = None
+        self.route_step = 0
+
+    @property
+    def current_route_stop(self) -> Optional[RouteStop]:
+        if self.route and self.route_step < len(self.route.stops):
+            return self.route.stops[self.route_step]
+        return None
 
     @property
     def effective_target(self) -> Optional[Pos]:

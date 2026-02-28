@@ -148,12 +148,21 @@ class GameState:
 
     @classmethod
     def from_dict(cls, data: dict) -> GameState:
+        items = tuple(Item.from_dict(i) for i in data["items"])
+        # Shelves (item positions) are not walkable but aren't in the walls list
+        shelf_positions = frozenset(item.position for item in items)
+        grid_data = data["grid"]
+        grid = Grid(
+            width=grid_data["width"],
+            height=grid_data["height"],
+            walls=frozenset(tuple(w) for w in grid_data["walls"]) | shelf_positions,
+        )
         return cls(
             round=data["round"],
             max_rounds=data["max_rounds"],
-            grid=Grid.from_dict(data["grid"]),
+            grid=grid,
             bots=tuple(Bot.from_dict(b) for b in data["bots"]),
-            items=tuple(Item.from_dict(i) for i in data["items"]),
+            items=items,
             orders=tuple(Order.from_dict(o) for o in data["orders"]),
             drop_off=tuple(data["drop_off"]),
             score=data.get("score", 0),

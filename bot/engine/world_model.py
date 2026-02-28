@@ -10,7 +10,7 @@ Created fresh each round from GameState + persistent PathEngine.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from bot.models import GameState, Bot, Item, Order, Pos, OrderStatus

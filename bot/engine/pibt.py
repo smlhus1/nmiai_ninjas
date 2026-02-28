@@ -49,8 +49,8 @@ class PIBTResolver:
         for bot_id, pos in bots.items():
             target = targets.get(bot_id, pos)
             d = self._distance(pos, target)
-            # Negate bot_id with tiebreak so lower IDs get higher priority
-            priorities[bot_id] = (d, bot_id - tiebreak_offset % 100)
+            # Tiebreak: (bot_id + offset) % 100 so priority rotates by round
+            priorities[bot_id] = (d, (bot_id + tiebreak_offset) % 100)
 
         # Sort by priority: closest to target first, then lowest ID
         sorted_ids = sorted(priorities.keys(), key=lambda bid: priorities[bid])
