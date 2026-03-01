@@ -114,6 +114,89 @@ def _make_medium_scenario() -> Simulator:
     )
 
 
+def _make_hard_scenario() -> Simulator:
+    """Built-in hard: 22x14, 5 bots, 4 aisles, 12 item types, 30 orders."""
+    width, height = 22, 14
+    walls: set[Pos] = set()
+    # Border walls
+    for x in range(width):
+        walls.add((x, 0)); walls.add((x, height - 1))
+    for y in range(height):
+        walls.add((0, y)); walls.add((width - 1, y))
+
+    # 12 item types for hard mode
+    types_list = [
+        "milk", "bread", "butter", "yogurt", "cheese", "juice",
+        "eggs", "ham", "coffee", "tea", "cereal", "pasta",
+    ]
+
+    # 4 aisles: each aisle is shelf-walkway-shelf (3 cols)
+    # Aisle 1: cols 3,4,5   (shelves at 3,5, walkway at 4)
+    # Aisle 2: cols 7,8,9   (shelves at 7,9, walkway at 8)
+    # Aisle 3: cols 11,12,13 (shelves at 11,13, walkway at 12)
+    # Aisle 4: cols 15,16,17 (shelves at 15,17, walkway at 16)
+    # Corridors: y=1 (top), y=6 (mid), y=12 (bottom)
+    # Shelf rows: y=2..5 (upper section), y=7..11 (lower section)
+    shelf_cols = [3, 5, 7, 9, 11, 13, 15, 17]
+    shelf_rows_upper = [2, 3, 4, 5]
+    shelf_rows_lower = [7, 8, 9, 10, 11]
+
+    shelf_types: dict[Pos, str] = {}
+    ti = 0
+    for sx in shelf_cols:
+        for sy in shelf_rows_upper + shelf_rows_lower:
+            shelf_types[(sx, sy)] = types_list[ti % len(types_list)]
+            ti += 1
+
+    shelves = set(shelf_types.keys())
+
+    # 5 bots spawning at bottom-right (inside border)
+    spawns = [(20, 12), (20, 11), (20, 10), (19, 12), (19, 11)]
+
+    # 30 orders, 3-5 items each (using all 12 types)
+    orders = [
+        {"id": f"order_{i}", "items_required": items}
+        for i, items in enumerate([
+            ["milk", "bread", "butter"],
+            ["yogurt", "cheese", "juice"],
+            ["eggs", "ham", "coffee"],
+            ["tea", "cereal", "pasta"],
+            ["milk", "cheese", "eggs", "tea"],
+            ["bread", "yogurt", "ham", "cereal"],
+            ["butter", "juice", "coffee", "pasta"],
+            ["milk", "bread", "cheese", "yogurt", "eggs"],
+            ["ham", "coffee", "tea"],
+            ["cereal", "pasta", "milk"],
+            ["bread", "butter", "yogurt", "cheese"],
+            ["juice", "eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "milk"],
+            ["bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs", "ham"],
+            ["coffee", "tea", "cereal", "pasta", "milk"],
+            ["bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs"],
+            ["ham", "coffee", "tea", "cereal"],
+            ["pasta", "milk", "bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs"],
+            ["ham", "coffee", "tea"],
+            ["cereal", "pasta", "milk", "bread"],
+            ["butter", "yogurt", "cheese"],
+            ["juice", "eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "milk"],
+            ["bread", "butter", "yogurt", "cheese"],
+            ["juice", "eggs", "ham"],
+            ["coffee", "tea", "cereal", "pasta"],
+            ["milk", "bread", "butter", "yogurt", "cheese"],
+        ])
+    ]
+
+    return Simulator(
+        width=width, height=height, walls=walls, shelves=shelves,
+        drop_off=(1, 12), spawn_positions=spawns,
+        order_sequence=orders, item_types_at_shelves=shelf_types,
+    )
+
+
 def run_live_bot(sim: Simulator, *, verbose: bool = True,
                  save_recon: bool = False) -> dict:
     """Run the live bot's full pipeline through the simulator."""
@@ -164,7 +247,7 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--recon", type=str,
                         help="Path to recon JSON file from a live game")
-    source.add_argument("--scenario", choices=["easy", "medium"],
+    source.add_argument("--scenario", choices=["easy", "medium", "hard"],
                         help="Built-in test scenario")
 
     parser.add_argument("--compare", action="store_true",
@@ -184,7 +267,12 @@ def main() -> None:
         sim = Simulator.from_recon_file(str(path))
     else:
         print(f"Using built-in scenario: {args.scenario}")
-        sim = _make_easy_scenario() if args.scenario == "easy" else _make_medium_scenario()
+        if args.scenario == "easy":
+            sim = _make_easy_scenario()
+        elif args.scenario == "medium":
+            sim = _make_medium_scenario()
+        else:
+            sim = _make_hard_scenario()
 
     print(f"Map: {sim.width}x{sim.height}, "
           f"{len(sim.shelves)} shelves, "

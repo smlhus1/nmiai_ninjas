@@ -268,7 +268,7 @@ def build_routes(
                 item_pos=item.position, pickup_pos=pickup_pos,
             )],
             order_id=order.id,
-            total_cost=effective,
+            total_cost=cost,
         ))
 
     routes.sort(key=lambda r: r.total_cost)

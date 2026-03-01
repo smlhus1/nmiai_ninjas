@@ -17,19 +17,24 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from collections import Counter
+from datetime import date
 from typing import Any
 
-from bot.models import Action, Bot, GameState, BotCommand, Pos, apply_move
+from bot.models import Action, Bot, GameState, BotCommand, Grid, Pos, apply_move
 from bot.engine.pathfinding import PathEngine
 from bot.engine.world_model import WorldModel
 from bot.strategy.planner import TaskPlanner
 from bot.strategy.action_resolver import ActionResolver
 from bot.strategy.task import BotAssignment, TaskType
 from bot.recon.logger import GameLogger
+from bot.recon.replay import ReplayPlanner
 
 logger = logging.getLogger(__name__)
+
+_LOGS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 
 _MOVE_ACTIONS = frozenset({
     Action.MOVE_UP, Action.MOVE_DOWN,
@@ -45,6 +50,7 @@ class Coordinator:
     def __init__(self) -> None:
         self._path_engine = PathEngine()
         self._planner = TaskPlanner()
+        self._active_planner = self._planner  # May switch to ReplayPlanner
         self._resolver = ActionResolver(self._path_engine)
         self._assignments: dict[int, BotAssignment] = {}
         self._round = 0
@@ -54,6 +60,8 @@ class Coordinator:
         self._offset_checked = False
         self._game_logger = GameLogger()
         self._shelf_positions: frozenset[Pos] = frozenset()
+        self._replay_checked = False
+        self._logs_dir = _LOGS_DIR
 
     def on_game_state(self, raw: dict[str, Any]) -> dict[str, Any]:
         """
@@ -66,12 +74,15 @@ class Coordinator:
         real_state = GameState.from_dict(raw)
         self._round = real_state.round
 
-        # 2. Detect round offset (our actions applied 1 round late)
+        # 2. Detect round offset (diagnostic logging only)
         if real_state.round >= 1 and not self._offset_checked:
             self._detect_offset(real_state)
 
-        # 3. Compensate: predict where bots WILL BE when our action is applied
-        state = self._compensate_offset(real_state) if self._round_offset else real_state
+        # 3. Use real state directly — offset compensation is disabled because:
+        #    - Prediction errors cascade (collisions make moves fail unpredictably)
+        #    - pick_up/drop_off silently become WAIT on wrong positions
+        #    - Shelf positions aren't walls in raw grid, causing invalid predictions
+        state = real_state
 
         # 4. Initialize assignments for new bots
         for bot in state.bots:
@@ -88,7 +99,6 @@ class Coordinator:
             self._shelf_positions = frozenset(item.position for item in state.items)
         if self._shelf_positions:
             merged_walls = state.grid.walls | self._shelf_positions
-            from bot.models import Grid
             merged_grid = Grid(state.grid.width, state.grid.height, merged_walls)
             self._path_engine.set_grid(merged_grid)
         else:
@@ -98,11 +108,16 @@ class Coordinator:
         # 5.5. Recon logging
         self._game_logger.on_round(state, self._shelf_positions)
 
+        # 5.6. Try loading replay plan (once, after fingerprint is available)
+        if not self._replay_checked and self._shelf_positions:
+            self._replay_checked = True
+            self._try_load_plan()
+
         # 6. Build world model
         world = WorldModel(state, self._path_engine)
 
         # 7. Plan tasks
-        self._assignments = self._planner.plan(world, self._assignments)
+        self._assignments = self._active_planner.plan(world, self._assignments)
 
         # 7.5 Drop-off scheduling
         self._schedule_dropoff(world)
@@ -160,6 +175,10 @@ class Coordinator:
 
     def _detect_offset(self, state: GameState) -> None:
         """Check if our previous action was applied or delayed by 1 round."""
+        # Positions where bots were last round (when move was attempted)
+        prev_positions = set(self._last_bot_positions.values())
+        curr_positions = {b.position for b in state.bots}
+
         for bot in state.bots:
             if bot.id not in self._last_commands or bot.id not in self._last_bot_positions:
                 continue
@@ -171,6 +190,15 @@ class Coordinator:
             if not state.grid.is_walkable(expected):
                 continue
             if bot.position == old_pos and expected != old_pos:
+                # Move failed. Could be offset OR collision.
+                # Check if another bot was at the expected position last round
+                # (collision happens at action-resolution time, not current state).
+                was_blocked = any(
+                    pos == expected for bid, pos in self._last_bot_positions.items()
+                    if bid != bot.id
+                )
+                if was_blocked:
+                    continue  # Collision, not offset
                 self._round_offset = True
                 self._offset_checked = True
                 logger.warning(
@@ -251,13 +279,60 @@ class Coordinator:
                     self._assignments[bot_id].navigation_override = best_staging
                     self._assignments[bot_id].path = None  # Force recompute
 
+    def _try_load_plan(self) -> None:
+        """Check for an existing plan file matching today's fingerprint."""
+        fp = self._game_logger.fingerprint
+        if not fp:
+            return
+
+        today = date.today().isoformat()
+        # Check canonical logs dir first, then instance logs dir
+        plan_path = os.path.join(_LOGS_DIR, f"{fp}_{today}_plan.json")
+        if not os.path.exists(plan_path):
+            plan_path = os.path.join(self._logs_dir, f"{fp}_{today}_plan.json")
+        if not os.path.exists(plan_path):
+            logger.info("No plan file found at %s — running in recon mode", plan_path)
+            return
+
+        try:
+            with open(plan_path) as f:
+                game_plan = json.load(f)
+            self._active_planner = ReplayPlanner(game_plan, self._planner)
+            logger.info("REPLAY MODE: loaded plan from %s (%d orders)",
+                        plan_path, len(game_plan.get("order_plans", [])))
+        except Exception:
+            logger.exception("Failed to load plan from %s — using reactive", plan_path)
+
     def finalize_game(self, total_rounds: int, final_score: int) -> None:
-        """Called at game_over. Saves recon data and generates plan."""
+        """Called at game_over. Saves recon data and generates plan for next run."""
         recon_data = self._game_logger.finalize(total_rounds, final_score)
         logger.info(
             "Game finalized: score=%d, rounds=%d, orders=%d",
             final_score, total_rounds, len(recon_data.get("order_sequence", [])),
         )
+
+        os.makedirs(self._logs_dir, exist_ok=True)
+        fp = recon_data.get("fingerprint", "unknown")
+        today = date.today().isoformat()
+
+        # Save recon data
+        recon_path = os.path.join(self._logs_dir, f"{fp}_{today}_recon.json")
+        with open(recon_path, "w") as f:
+            json.dump(recon_data, f, indent=2)
+        logger.info("Recon data saved to %s", recon_path)
+
+        # Generate plan from recon data
+        try:
+            from bot.recon.analyzer import OfflinePlanner as ReconAnalyzer
+            analyzer = ReconAnalyzer(recon_data, self._path_engine)
+            game_plan = analyzer.plan()
+            plan_path = os.path.join(self._logs_dir, f"{fp}_{today}_plan.json")
+            with open(plan_path, "w") as f:
+                json.dump(game_plan, f, indent=2)
+            logger.info("Plan generated and saved to %s (%d orders)",
+                        plan_path, len(game_plan.get("order_plans", [])))
+        except Exception:
+            logger.exception("Failed to generate plan from recon data")
 
     def reset(self) -> None:
         """Reset all state for a new game."""
@@ -269,3 +344,6 @@ class Coordinator:
         self._offset_checked = False
         self._game_logger = GameLogger()
         self._shelf_positions = frozenset()
+        self._replay_checked = False
+        self._planner = TaskPlanner()
+        self._active_planner = self._planner

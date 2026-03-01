@@ -136,8 +136,15 @@ recon = adapter.finalize(result)  # returns recon dict
 adapter.reset()                   # ready for next game
 ```
 
+## Hard Mode Connection
+```
+wss://game.ainm.no/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZWFtX2lkIjoiYjdiYzQzMDMtOWZjNy00OTgxLTg2ZTMtNmRmZGJiZjI2YTBjIiwibWFwX2lkIjoiMDVkZGMyODMtOTA5Ny00MzE0LTgyNGMtOTBiMzI2OWEzZDk1IiwibWFwX3NlZWQiOjcwMDMsImRpZmZpY3VsdHkiOiJoYXJkIiwiZXhwIjoxNzcyMzk5OTAzfQ.pJFcDgpUSGxPamh0xqMewX0w7pp2KC-4Ubjx5dqGvVk
+```
+Hard mode: 22x14 grid, 5 bots, 4 aisles, 12 item types, 3-5 items/order, map_seed=7003
+
 ## Environment
-- Python 3.13, run with `py` (Windows Python Launcher)
+- Python 3.13, use `uv run python` to execute scripts (e.g. `uv run python main.py ...`)
+- Use `uv pip install` for package management, `uv run pytest` for tests
 - `websockets`, `scipy` (Hungarian), `numpy`, `pytest`
 - `GAME_WS_URL` env var or `--url` flag for server address
 

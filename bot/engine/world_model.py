@@ -73,10 +73,11 @@ class WorldModel:
 
     def pickup_positions(self, item_pos: Pos) -> list[Pos]:
         """Walkable cells adjacent to an item's shelf position."""
+        grid = self.path._grid if self.path._grid else self.state.grid
         result = []
         for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
             pos = (item_pos[0] + dx, item_pos[1] + dy)
-            if self.state.grid.is_walkable(pos):
+            if grid.is_walkable(pos):
                 result.append(pos)
         return result
 
@@ -151,16 +152,18 @@ class WorldModel:
 
     def dropoff_adjacent_positions(self) -> list[Pos]:
         """Walkable cells adjacent to the drop-off zone."""
+        grid = self.path._grid if self.path._grid else self.state.grid
         result = []
         drop = self.state.drop_off
         for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
             pos = (drop[0] + dx, drop[1] + dy)
-            if self.state.grid.is_walkable(pos):
+            if grid.is_walkable(pos):
                 result.append(pos)
         return result
 
     def staging_positions(self, distance: int = 2) -> list[Pos]:
         """Walkable cells near drop-off for staging (2-3 cells away)."""
+        grid = self.path._grid if self.path._grid else self.state.grid
         result = []
         drop = self.state.drop_off
         for dx in range(-distance - 1, distance + 2):
@@ -169,9 +172,33 @@ class WorldModel:
                 manhattan = abs(dx) + abs(dy)
                 if manhattan < 2 or manhattan > distance + 1:
                     continue
-                if self.state.grid.is_walkable(pos):
+                if grid.is_walkable(pos):
                     result.append(pos)
         return result
+
+    def parking_positions(self) -> list[Pos]:
+        """Walkable cells far from drop-off corridor, for idling out of the way.
+
+        Returns positions NOT on the same y-row as drop-off, to avoid blocking
+        the delivery corridor. Uses PathEngine's grid (includes shelf walls).
+        Falls back to staging_positions if nothing found.
+        """
+        drop = self.state.drop_off
+        # Use PathEngine grid which includes shelf positions as walls
+        grid = self.path._grid if self.path._grid else self.state.grid
+        result = []
+        # Scan a wide area, prefer positions on different y than drop-off
+        for dx in range(-8, 9):
+            for dy in range(-8, 9):
+                pos = (drop[0] + dx, drop[1] + dy)
+                if pos[1] == drop[1]:
+                    continue  # Skip drop-off row
+                manhattan = abs(dx) + abs(dy)
+                if manhattan < 3 or manhattan > 8:
+                    continue
+                if grid.is_walkable(pos):
+                    result.append(pos)
+        return result if result else self.staging_positions(distance=3)
 
     def bot_positions_except(self, bot_id: int) -> set[Pos]:
         """Positions of all bots except the given one."""

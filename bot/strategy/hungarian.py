@@ -95,6 +95,17 @@ def solve_assignment(
     n_bots = len(picking_bots)
     n_routes = len(all_routes)
 
+    # Compute how many items still need picking (for parallelism decision)
+    _type_need_tmp = Counter(primary_order.items_remaining)
+    for bot_obj in state.bots:
+        for inv_item in bot_obj.inventory:
+            if _type_need_tmp[inv_item] > 0:
+                _type_need_tmp[inv_item] -= 1
+    _type_need_tmp = +_type_need_tmp
+    n_items_still_needed = sum(_type_need_tmp.values())
+    # Prefer parallel single-item routes when enough bots available
+    prefer_parallel = n_bots >= n_items_still_needed and n_items_still_needed > 1
+
     # Build cost matrix: bot x route
     cost = np.full((n_bots, n_routes), BIG_COST)
 
@@ -172,6 +183,11 @@ def solve_assignment(
             else:
                 cost_val = float(total_cost)
 
+            # Parallelism penalty: when enough bots exist to split work,
+            # prefer single-item routes to enable parallel picking
+            if prefer_parallel and len(route.stops) > 1:
+                cost_val += 2.0 * (len(route.stops) - 1)
+
             # Switching penalty: discourage changing route
             if current_route_ids and not current_route_ids.intersection(route.item_ids):
                 cost_val += 3.0
@@ -187,7 +203,7 @@ def solve_assignment(
         logger.warning("Hungarian assignment failed, returning partial results")
         return result
 
-    # Post-assignment: resolve item overlaps (lower-cost assignments win)
+    # Post-assignment: resolve item AND type overlaps (lower-cost wins)
     assigned_pairs = []
     for i, j in zip(row_ind, col_ind):
         if cost[i][j] >= BIG_COST:
@@ -197,31 +213,54 @@ def solve_assignment(
     # Sort by cost (lowest first = highest priority)
     assigned_pairs.sort()
 
+    # Compute global type need: remaining items to pick up
+    # (order remaining minus all bots' matching inventory)
+    type_need = Counter(primary_order.items_remaining)
+    for bot_obj in state.bots:
+        for inv_item in bot_obj.inventory:
+            if type_need[inv_item] > 0:
+                type_need[inv_item] -= 1
+    type_need = +type_need
+
     globally_claimed: set[str] = set()
+    assigned_types: Counter = Counter()
+
     for _, i, j in assigned_pairs:
         bot = picking_bots[i]
         route = all_routes[j]
 
-        # Check for item overlap with already-assigned routes
+        # Check for item ID overlap with already-assigned routes
         overlap = route.item_ids.intersection(globally_claimed)
         if overlap:
-            # Try to build a reduced route without overlapping items
             reduced_stops = [s for s in route.stops if s.item_id not in globally_claimed]
             if not reduced_stops:
-                continue  # No items left, skip this bot
+                continue
             route = Route(
                 stops=reduced_stops,
                 order_id=route.order_id,
-                total_cost=route.total_cost,  # Approximate
+                total_cost=route.total_cost,
             )
+
+        # Type over-picking guard: prevent multiple bots picking same type
+        if True:
+            filtered_stops = []
+            for stop in route.stops:
+                remaining = type_need.get(stop.item_type, 0) - assigned_types.get(stop.item_type, 0)
+                if remaining > 0:
+                    filtered_stops.append(stop)
+            if not filtered_stops:
+                continue
+            if len(filtered_stops) < len(route.stops):
+                route = Route(
+                    stops=filtered_stops,
+                    order_id=route.order_id,
+                    total_cost=route.total_cost,
+                )
 
         first_stop = route.stops[0]
 
-        # Hungarian only handles active order items — always PICK_UP
-        task_type = TaskType.PICK_UP
-
         task = Task(
-            task_type=task_type,
+            task_type=TaskType.PICK_UP,
             target_pos=first_stop.pickup_pos,
             item_id=first_stop.item_id,
             item_type=first_stop.item_type,
@@ -229,11 +268,12 @@ def solve_assignment(
             order_id=route.order_id,
         )
 
-        # Only include route for multi-stop routes
         final_route = route if len(route.stops) > 1 else None
 
         result[bot.id] = (task, final_route)
         globally_claimed.update(route.item_ids)
+        for stop in route.stops:
+            assigned_types[stop.item_type] += 1
 
     return result
 
@@ -361,9 +401,12 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     if not bot.inventory:
         return False
     if world.is_endgame():
-        return True
-    if len(bot.inventory) >= 3:
-        return True  # Full — can't pick more
+        # Only deliver if we have items matching the active order
+        active = world.state.active_orders
+        if active:
+            remaining = list(active[0].items_remaining)
+            return any(inv in remaining for inv in bot.inventory)
+        return True  # No active order — deliver anything
 
     active = world.state.active_orders
     if not active:
@@ -371,6 +414,21 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
 
     order = active[0]
     remaining = list(order.items_remaining)
+
+    if len(bot.inventory) >= 3:
+        # Full — but only deliver if we have matching active items.
+        # Non-matching items stay in inventory, so delivering is pointless
+        # and causes the bot to block corridors in deliver-clear loops.
+        has_active_match = any(inv in remaining for inv in bot.inventory)
+        if has_active_match:
+            return True
+        # Check preview for auto-delivery potential
+        preview = world.state.preview_orders
+        if preview:
+            preview_types = set(preview[0].items_remaining)
+            if any(inv in preview_types for inv in bot.inventory):
+                return False  # Wait for auto-delivery on order transition
+        return False  # Don't deliver — nothing will actually be delivered
 
     # Check if bot's inventory completes the order
     remaining_copy = list(remaining)
