@@ -62,6 +62,7 @@ class Coordinator:
         self._shelf_positions: frozenset[Pos] = frozenset()
         self._replay_checked = False
         self._logs_dir = _LOGS_DIR
+        self._stuck_rounds: dict[int, int] = {}  # bot_id -> consecutive stuck rounds
 
     def on_game_state(self, raw: dict[str, Any]) -> dict[str, Any]:
         """
@@ -118,6 +119,9 @@ class Coordinator:
 
         # 7. Plan tasks
         self._assignments = self._active_planner.plan(world, self._assignments)
+
+        # 7.3 Stuck detection — clear tasks of bots that haven't moved
+        self._detect_stuck_bots(state, world)
 
         # 7.5 Drop-off scheduling
         self._schedule_dropoff(world)
@@ -241,6 +245,49 @@ class Coordinator:
             score=state.score,
         )
 
+    def _detect_stuck_bots(self, state: GameState, world: WorldModel) -> None:
+        """Detect bots that haven't moved for many rounds and reassign them."""
+        STUCK_THRESHOLD = 5
+
+        for bot in state.bots:
+            prev_pos = self._last_bot_positions.get(bot.id)
+            if prev_pos is None:
+                self._stuck_rounds[bot.id] = 0
+                continue
+
+            if bot.position == prev_pos:
+                self._stuck_rounds[bot.id] = self._stuck_rounds.get(bot.id, 0) + 1
+            else:
+                self._stuck_rounds[bot.id] = 0
+
+            assignment = self._assignments.get(bot.id)
+            if not assignment or not assignment.task:
+                continue
+
+            rounds_stuck = self._stuck_rounds[bot.id]
+            if rounds_stuck >= STUCK_THRESHOLD:
+                task = assignment.task
+                # Don't clear if bot is at its target doing pick_up/drop_off
+                if (task.task_type in (TaskType.PICK_UP, TaskType.DELIVER)
+                        and bot.position == assignment.effective_target):
+                    continue
+                # If already IDLE, just accept current position as park spot
+                if task.task_type == TaskType.IDLE:
+                    from bot.strategy.task import Task
+                    assignment.task = Task(
+                        task_type=TaskType.IDLE, target_pos=bot.position
+                    )
+                    assignment.path = None
+                    self._stuck_rounds[bot.id] = 0
+                    continue
+                logger.warning(
+                    "STUCK: B%d at %s for %d rounds (task=%s tgt=%s) — clearing",
+                    bot.id, bot.position, rounds_stuck,
+                    task.task_type.name, assignment.effective_target,
+                )
+                assignment.clear()
+                self._stuck_rounds[bot.id] = 0
+
     def _schedule_dropoff(self, world: WorldModel) -> None:
         """Limit concurrent drop-off approaches to avoid gridlock."""
         # Count walkable cells adjacent to drop-off = max concurrent deliverers
@@ -251,14 +298,18 @@ class Coordinator:
             if assignment.task and assignment.task.task_type == TaskType.DELIVER:
                 assignment.navigation_override = None
 
-        # Find all bots with DELIVER tasks, sorted by distance to drop-off
+        # Find all bots with DELIVER tasks that have matching items
         deliverers: list[tuple[int, int]] = []  # (distance, bot_id)
+        active = world.state.active_orders
+        remaining_types = set(active[0].items_remaining) if active else set()
         for bot_id, assignment in self._assignments.items():
             if assignment.task and assignment.task.task_type == TaskType.DELIVER:
                 bot = world.state.get_bot(bot_id)
                 if bot:
-                    d = world.distance(bot.position, world.state.drop_off)
-                    deliverers.append((d, bot_id))
+                    has_match = any(inv in remaining_types for inv in bot.inventory)
+                    if has_match or not remaining_types:
+                        d = world.distance(bot.position, world.state.drop_off)
+                        deliverers.append((d, bot_id))
 
         if len(deliverers) <= max_slots:
             return  # No scheduling needed

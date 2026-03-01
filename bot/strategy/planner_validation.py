@@ -29,8 +29,14 @@ class ValidationMixin:
         """Remove tasks that are no longer valid."""
         state = world.state
         current_item_ids = {item.id for item in state.items}
-        # Active order IDs for PRE_PICK invalidation on order transition
+        # Active/preview order IDs for staleness checks
         active_order_ids = {o.id for o in state.active_orders}
+        preview_order_ids = {o.id for o in state.preview_orders}
+        known_order_ids = active_order_ids | preview_order_ids
+        # Item types needed by active orders
+        active_remaining_types: set[str] = set()
+        for o in state.active_orders:
+            active_remaining_types.update(o.items_remaining)
 
         for bot_id, assignment in assignments.items():
             task = assignment.task
@@ -43,6 +49,23 @@ class ValidationMixin:
                 continue
 
             if assignment.route:
+                # Route for a completed order — clear it
+                route_oid = assignment.route.order_id
+                if route_oid and route_oid not in known_order_ids:
+                    logger.debug("Bot %d: route for completed order %s, clearing", bot_id, route_oid)
+                    if bot.inventory and self._has_matching_items(bot, world):
+                        assignment.task = Task(
+                            task_type=TaskType.DELIVER,
+                            target_pos=state.drop_off,
+                        )
+                    else:
+                        assignment.task = None
+                    assignment.route = None
+                    assignment.route_step = 0
+                    assignment.path = None
+                    if assignment.task is None:
+                        assignment.clear()
+                    continue
                 remaining_stops = assignment.route.stops[assignment.route_step:]
                 remaining_stops = [
                     s for s in remaining_stops
@@ -136,7 +159,22 @@ class ValidationMixin:
                     self._stuck_pick_rounds.pop(bot_id, None)
 
             if task.task_type == TaskType.PICK_UP:
-                if (task.item_id
+                # Clear if picking for a completed order
+                if task.order_id and task.order_id not in known_order_ids:
+                    logger.debug("Bot %d: PICK_UP for completed order %s, clearing",
+                                 bot_id, task.order_id)
+                    assignment.clear()
+                # Clear if item type doesn't match active order (stale/junk pickup)
+                elif task.item_type and active_remaining_types and task.item_type not in active_remaining_types:
+                    # Allow if it matches preview order (may auto-deliver on transition)
+                    preview_types: set[str] = set()
+                    for o in state.preview_orders:
+                        preview_types.update(o.items_remaining)
+                    if task.item_type not in preview_types:
+                        logger.debug("Bot %d: PICK_UP for %s not needed by any order, clearing",
+                                     bot_id, task.item_type)
+                        assignment.clear()
+                elif (task.item_id
                         and task.item_id not in current_item_ids
                         and not task.item_id.startswith("camp_")):
                     assignment.clear()
@@ -155,6 +193,10 @@ class ValidationMixin:
                 if not bot.inventory:
                     assignment.clear()
                     self._stuck_deliver_rounds.pop(bot_id, None)
+                elif not self._has_matching_items(bot, world) and not world.is_endgame():
+                    # No items match active order — clear immediately to avoid blocking drop-off
+                    assignment.clear()
+                    self._stuck_deliver_rounds.pop(bot_id, None)
                 elif bot.position == state.drop_off:
                     prev_inv = self._prev_inventory.get(bot_id)
                     if prev_inv == bot.inventory:
@@ -165,7 +207,3 @@ class ValidationMixin:
                             self._stuck_deliver_rounds.pop(bot_id, None)
                     else:
                         self._stuck_deliver_rounds.pop(bot_id, None)
-                elif world.is_endgame():
-                    pass
-                elif not self._has_matching_items(bot, world):
-                    assignment.clear()

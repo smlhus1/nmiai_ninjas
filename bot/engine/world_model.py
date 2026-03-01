@@ -177,27 +177,36 @@ class WorldModel:
         return result
 
     def parking_positions(self) -> list[Pos]:
-        """Walkable cells far from drop-off corridor, for idling out of the way.
+        """Walkable cells far from aisles and drop-off, for idling out of the way.
 
-        Returns positions NOT on the same y-row as drop-off, to avoid blocking
-        the delivery corridor. Uses PathEngine's grid (includes shelf walls).
-        Falls back to staging_positions if nothing found.
+        Prefers positions on the right side of the map (far from shelf aisles)
+        to avoid blocking narrow corridors. Falls back to any wide-open area.
         """
-        drop = self.state.drop_off
-        # Use PathEngine grid which includes shelf positions as walls
         grid = self.path._grid if self.path._grid else self.state.grid
+        w, h = grid.width, grid.height
+        drop = self.state.drop_off
+
+        # Prefer the right edge of the map (x >= w-4) — wide open corridor
         result = []
-        # Scan a wide area, prefer positions on different y than drop-off
-        for dx in range(-8, 9):
-            for dy in range(-8, 9):
-                pos = (drop[0] + dx, drop[1] + dy)
-                if pos[1] == drop[1]:
-                    continue  # Skip drop-off row
-                manhattan = abs(dx) + abs(dy)
-                if manhattan < 3 or manhattan > 8:
+        for x in range(max(0, w - 4), w):
+            for y in range(h):
+                pos = (x, y)
+                if pos == drop:
                     continue
+                if pos[1] == drop[1] and abs(pos[0] - drop[0]) <= 3:
+                    continue  # Skip near drop-off row
                 if grid.is_walkable(pos):
                     result.append(pos)
+
+        if not result:
+            # Fallback: any walkable cell far from drop-off
+            for x in range(w):
+                for y in range(h):
+                    pos = (x, y)
+                    manhattan = abs(pos[0] - drop[0]) + abs(pos[1] - drop[1])
+                    if manhattan >= 6 and grid.is_walkable(pos):
+                        result.append(pos)
+
         return result if result else self.staging_positions(distance=3)
 
     def bot_positions_except(self, bot_id: int) -> set[Pos]:

@@ -158,19 +158,20 @@ class DecisionsMixin:
                 target_pos=state.drop_off,
             )
 
-        # Priority 2: Find best item for best order
+        # Can't pick up if inventory full
+        if len(bot.inventory) >= 3:
+            return None
+
+        # Priority 2: Find best item for ACTIVE order only
+        # (preview pre-picking is handled separately by _assign_preview_tasks)
         best_task: Optional[Task] = None
         best_score: float = -1.0
 
-        # Score all orders
-        scored_orders = [
-            (world.order_value(order), order)
-            for order in state.orders
-            if not order.complete
-        ]
-        scored_orders.sort(key=lambda x: x[0], reverse=True)
+        active_orders = state.active_orders
+        if not active_orders:
+            return None
 
-        for _, order in scored_orders:
+        for order in active_orders:
             for item_type in order.items_remaining:
                 for item in world.items_of_type(item_type):
                     if item.id in claimed_items:
@@ -223,9 +224,28 @@ class DecisionsMixin:
             )
 
         if len(bot.inventory) >= 3:
-            return Task(task_type=TaskType.IDLE, target_pos=bot.position)
+            # Park out of the way so we don't block aisles or drop-off
+            parking = world.parking_positions()
+            if parking:
+                other_bots = world.bot_positions_except(bot.id)
+                free = [p for p in parking if p not in other_bots]
+                if free:
+                    target = min(free, key=lambda p: world.distance(bot.position, p))
+                else:
+                    target = min(parking, key=lambda p: world.distance(bot.position, p))
+            else:
+                target = bot.position
+            return Task(task_type=TaskType.IDLE, target_pos=target)
+
+        # Only pick up items matching active or preview orders (don't hoard junk)
+        wanted_types: set[str] = set()
+        for order in state.orders:
+            if not order.complete:
+                wanted_types.update(order.items_remaining)
 
         for item in state.items:
+            if item.type not in wanted_types:
+                continue
             if item.id in claimed_items:
                 continue
             if not world.can_complete_trip(bot, item.position):
@@ -285,8 +305,8 @@ class DecisionsMixin:
         if not self._has_matching_items(bot, world):
             if self._has_matching_preview_items(bot, world):
                 return False
-            if len(bot.inventory) >= 3:
-                return True  # Full inventory, nothing matches any order — deliver for +1 per item
+            # Nothing matches active order — delivering won't work (non-matching
+            # items stay in inventory).  Do NOT send to drop-off.
             return False
 
         if len(bot.inventory) >= 3:
@@ -352,7 +372,15 @@ class DecisionsMixin:
             )
             d_to_drop = world.distance(bot.position, world.state.drop_off)
             rounds_needed = nearest_pick_dist + 1 + d_to_drop + 1 + 2  # +2 margin
-            if rounds_needed <= world.rounds_remaining:
-                return False  # Keep picking
+            if rounds_needed > world.rounds_remaining:
+                return True  # Not enough time, deliver now
+
+            # Don't detour if picking adds too many rounds vs direct delivery
+            d_direct_drop = world.distance(bot.position, world.state.drop_off)
+            detour_cost = nearest_pick_dist + 1 + d_to_drop - d_direct_drop
+            if detour_cost > 10:
+                return True  # Detour too expensive, deliver now
+
+            return False  # Keep picking
 
         return True  # Deliver what we have

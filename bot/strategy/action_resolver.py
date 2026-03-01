@@ -97,7 +97,19 @@ class ActionResolver:
             # DELIVER: at drop-off? (use state.drop_off, not task.target_pos)
             if task.task_type == TaskType.DELIVER:
                 if bot.position == state.drop_off:
-                    commands[bot.id] = BotCommand(bot.id, Action.DROP_OFF)
+                    # Only issue drop_off if bot has items matching active order
+                    active = state.active_orders
+                    if active:
+                        remaining = list(active[0].items_remaining)
+                        has_match = any(inv in remaining for inv in bot.inventory)
+                    else:
+                        has_match = bool(bot.inventory)
+                    if has_match:
+                        commands[bot.id] = BotCommand(bot.id, Action.DROP_OFF)
+                        continue
+                    # No matching items — move away, let PIBT handle
+                    movement_bots[bot.id] = bot
+                    movement_targets[bot.id] = assignment.effective_target or task.target_pos
                     continue
 
             # This bot needs to move — collect for PIBT
