@@ -313,3 +313,54 @@ class TestRouteAdvancement:
         # bread stop should be removed from remaining stops
         remaining_ids = {s.item_id for s in a.route.stops[a.route_step:]}
         assert "item_1" not in remaining_ids
+
+
+class TestPreviewInRoutes:
+    """Tests for preview items included in routes."""
+
+    def test_build_routes_includes_preview_on_the_way(self):
+        """Routes completing active order should include nearby preview items."""
+        world = _make_world(
+            bots=[{"id": 0, "position": [4, 1], "inventory": []}],
+            items=[
+                {"id": "item_0", "type": "milk", "position": [5, 1]},
+                {"id": "item_1", "type": "cheese", "position": [5, 3]},  # preview
+            ],
+            orders=[
+                {"id": "order_0", "items_required": ["milk"],
+                 "items_delivered": [], "complete": False, "status": "active"},
+                {"id": "order_1", "items_required": ["cheese"],
+                 "items_delivered": [], "complete": False, "status": "preview"},
+            ],
+        )
+        bot = world.state.bots[0]
+        active = world.state.active_orders[0]
+        preview = world.state.preview_orders[0]
+        routes = build_routes(bot, world, active, set(), preview)
+        multi = [r for r in routes if len(r.stops) >= 2]
+        assert len(multi) >= 1, "Should include preview item on the way"
+
+
+class TestEndgameRoutes:
+    """Tests for endgame multi-item route planning."""
+
+    def test_endgame_uses_multi_item_routes(self):
+        """In endgame with >15 rounds, should batch items."""
+        world = _make_world(
+            bots=[{"id": 0, "position": [4, 1], "inventory": []}],
+            items=[
+                {"id": "item_0", "type": "milk", "position": [5, 1]},
+                {"id": "item_1", "type": "bread", "position": [5, 3]},
+            ],
+            orders=[{"id": "order_0", "items_required": ["milk", "bread"],
+                     "items_delivered": [], "complete": False, "status": "active"}],
+            round_num=275, max_rounds=300,  # 25 rounds left
+        )
+        from bot.strategy.planner import TaskPlanner
+        planner = TaskPlanner()
+        assignments = {0: BotAssignment(bot_id=0)}
+        planner._plan_endgame(world, assignments, set())
+        a = assignments[0]
+        assert a.task.task_type == TaskType.PICK_UP
+        assert a.route is not None
+        assert len(a.route.stops) >= 2

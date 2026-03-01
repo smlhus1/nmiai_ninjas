@@ -31,6 +31,7 @@ def build_routes(
     world: WorldModel,
     order: Optional[Order],
     claimed_items: set[str],
+    preview_order: Optional[Order] = None,
 ) -> list[Route]:
     """
     Build candidate routes for a bot to pick up items for an order.
@@ -141,6 +142,41 @@ def build_routes(
             used_types[item.type] += 1
             total_dist += d_next
             current_pos = pickup_pos
+
+        # If route completes active order AND has capacity, add preview items "on the way"
+        if preview_order and len(stops) < capacity:
+            # Check if current stops + bot inventory covers all active remaining
+            active_types_in_route = Counter(s.item_type for s in stops)
+            active_types_in_inv = Counter(bot.inventory)
+            combined = active_types_in_route + active_types_in_inv
+            uncovered = Counter(order.items_remaining)
+            for t, c in combined.items():
+                uncovered[t] = max(0, uncovered.get(t, 0) - c)
+            uncovered = +uncovered  # Remove zeros
+
+            if not uncovered:  # Route completes active order!
+                preview_budget = Counter(preview_order.items_remaining)
+                for item_type in preview_budget:
+                    if len(stops) >= capacity:
+                        break
+                    for item in world.items_of_type(item_type):
+                        if item.id in used_ids or item.id in claimed_items:
+                            continue
+                        pp = world.best_pickup_position(current_pos, item.position)
+                        if pp is None:
+                            continue
+                        # Only if "on the way" — max 4 extra steps vs direct to drop-off
+                        d_direct = world.distance(current_pos, drop_off)
+                        d_via = world.distance(current_pos, pp) + world.distance(pp, drop_off)
+                        if d_via <= d_direct + 4:
+                            stops.append(RouteStop(
+                                item_id=item.id, item_type=item.type,
+                                item_pos=item.position, pickup_pos=pp,
+                            ))
+                            used_ids.add(item.id)
+                            total_dist += world.distance(current_pos, pp)
+                            current_pos = pp
+                            break  # One per type
 
         # Add delivery distance + action costs
         d_delivery = world.distance(current_pos, drop_off)

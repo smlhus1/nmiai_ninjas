@@ -9,6 +9,7 @@ routes (1-3 items) instead of single items.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from typing import Optional
 
 import numpy as np
@@ -63,10 +64,13 @@ def solve_assignment(
 
     primary_order = active_orders[0]
 
+    preview_orders = state.preview_orders
+    preview_order = preview_orders[0] if preview_orders else None
+
     # Build candidate routes per bot
     bot_routes: list[list[Route]] = []
     for bot in picking_bots:
-        routes = build_routes(bot, world, primary_order, claimed_items)
+        routes = build_routes(bot, world, primary_order, claimed_items, preview_order)
         bot_routes.append(routes)
         if not routes:
             logger.debug("Bot %d: no routes found for order %s (remaining=%s)",
@@ -142,17 +146,28 @@ def solve_assignment(
                 continue
 
             # Cost value based on order value
-            is_preview = all(s.item_id in preview_item_ids for s in route.stops)
-            if is_preview:
-                cost_val = float(d_first + 1)
-            elif route.order_id is not None:
+            # Note: Hungarian only handles active order routes. Preview pre-picking
+            # is handled separately by _assign_preview_tasks in the planner.
+            if route.order_id is not None:
                 order = next(
                     (o for o in active_orders if o.id == route.order_id), None
                 )
-                order_val = max(world.order_value(order), 0.1) if order else 1.0
-                # Multi-item routes get bonus: more items per trip = better value
-                items_value = len(route.stops)  # Each item is worth at least +1
-                cost_val = total_cost / (order_val * items_value)
+                if order:
+                    # Check if this route + bot inventory completes the order
+                    items_in_route = Counter(s.item_type for s in route.stops)
+                    items_in_inv = Counter(bot.inventory)
+                    combined = items_in_route + items_in_inv
+                    remaining_after = Counter(order.items_remaining)
+                    for t, c in combined.items():
+                        remaining_after[t] = max(0, remaining_after.get(t, 0) - c)
+                    remaining_after = +remaining_after
+                    completes_order = not remaining_after
+
+                    # Effective items: real items + 5 bonus if completing order
+                    effective_items = len(route.stops) + (5 if completes_order else 0)
+                    cost_val = total_cost / max(effective_items, 1)
+                else:
+                    cost_val = total_cost / max(len(route.stops), 1)
             else:
                 cost_val = float(total_cost)
 
@@ -293,27 +308,43 @@ def _assign_non_order_items(
 
 
 def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
-    """Quick deliver check for Hungarian pre-filter."""
+    """Quick deliver check for Hungarian pre-filter.
+
+    Only force delivery when OBVIOUSLY correct. Let Hungarian
+    decide in ambiguous cases by considering multi-item routes.
+    """
     if not bot.inventory:
         return False
-
     if world.is_endgame():
         return True
+    if len(bot.inventory) >= 3:
+        return True  # Full — can't pick more
 
     active = world.state.active_orders
     if not active:
         return bool(bot.inventory)
 
-    remaining = list(active[0].items_remaining)
+    order = active[0]
+    remaining = list(order.items_remaining)
+
+    # Check if bot's inventory completes the order
+    remaining_copy = list(remaining)
     for inv_item in bot.inventory:
-        if inv_item in remaining:
-            return True  # Has matching item for active order
+        if inv_item in remaining_copy:
+            remaining_copy.remove(inv_item)
+    if not remaining_copy:
+        return True  # All remaining items in inventory — deliver for +5!
 
-    # No active-order match: wait if inventory matches preview (auto-delivery on transition)
-    preview = world.state.preview_orders
-    if preview:
-        preview_types = set(preview[0].items_remaining)
-        if any(inv in preview_types for inv in bot.inventory):
-            return False
+    # Has matching items but order not complete — let Hungarian decide
+    # (it may find a multi-item route that picks more before delivering)
 
-    return len(bot.inventory) >= 3  # Full and no order match — deliver for +1 per item
+    # No active-order match: check preview for auto-delivery
+    has_match = any(inv in remaining for inv in bot.inventory)
+    if not has_match:
+        preview = world.state.preview_orders
+        if preview:
+            preview_types = set(preview[0].items_remaining)
+            if any(inv in preview_types for inv in bot.inventory):
+                return False  # Wait for auto-delivery
+
+    return False  # Don't force — let Hungarian handle it

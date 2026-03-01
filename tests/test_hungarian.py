@@ -146,7 +146,7 @@ def test_hungarian_respects_claimed():
 
 
 def test_hungarian_delivers_with_inventory():
-    """Bot with matching inventory should deliver, not pick."""
+    """Bot with partial matching inventory should pick more, not deliver immediately."""
     world = _make_world(
         bots=[{"id": 0, "position": [6, 5], "inventory": ["milk"]}],
         items=[{"id": "item_1", "type": "bread", "position": [5, 3]}],
@@ -160,7 +160,53 @@ def test_hungarian_delivers_with_inventory():
     )
 
     task, _ = result[0]
+    assert task.task_type == TaskType.PICK_UP  # Should pick bread, not deliver milk alone
+
+
+def test_hungarian_delivers_when_completing_order():
+    """Bot with ALL remaining order items should deliver immediately."""
+    world = _make_world(
+        bots=[{"id": 0, "position": [6, 5], "inventory": ["milk", "bread"]}],
+        items=[{"id": "item_2", "type": "cheese", "position": [5, 5]}],
+        orders=[{
+            "id": "order_0",
+            "items_required": ["milk", "bread"],
+            "items_delivered": [],
+            "complete": False, "status": "active",
+        }],
+    )
+    assignments = {0: BotAssignment(bot_id=0)}
+
+    from bot.strategy.hungarian import solve_assignment
+    result = solve_assignment(
+        [world.state.bots[0]], world, assignments, set(), set(),
+    )
+
+    task, _ = result[0]
     assert task.task_type == TaskType.DELIVER
+
+
+def test_hungarian_batches_instead_of_early_deliver():
+    """Bot with 1 matching item should pick more if available, not deliver early."""
+    world = _make_world(
+        bots=[{"id": 0, "position": [4, 1], "inventory": ["milk"]}],
+        items=[{"id": "item_1", "type": "bread", "position": [5, 1]}],
+        orders=[{
+            "id": "order_0",
+            "items_required": ["milk", "bread"],
+            "items_delivered": [],
+            "complete": False, "status": "active",
+        }],
+    )
+    assignments = {0: BotAssignment(bot_id=0)}
+
+    from bot.strategy.hungarian import solve_assignment
+    result = solve_assignment(
+        [world.state.bots[0]], world, assignments, set(), set(),
+    )
+
+    task, _ = result[0]
+    assert task.task_type == TaskType.PICK_UP
 
 
 def test_hungarian_active_item_not_pre_pick():
@@ -231,12 +277,58 @@ def test_hungarian_assigns_routes():
     assert 0 in result
     task, route = result[0]
     assert task.task_type == TaskType.PICK_UP
-    # Should get a route with multiple stops (items are close, capacity allows 3)
-    if route is not None:
-        assert len(route.stops) >= 2
-        # All items should be from the order
-        route_item_ids = route.item_ids
-        assert route_item_ids.issubset({"item_0", "item_1", "item_2"})
+    # Must get a multi-item route (items are close, capacity allows 3)
+    assert route is not None, "Should assign multi-item route, not single item"
+    assert len(route.stops) >= 2
+    # All items should be from the order
+    route_item_ids = route.item_ids
+    assert route_item_ids.issubset({"item_0", "item_1", "item_2"})
+
+
+def test_hungarian_routes_not_treated_as_preview():
+    """Active order routes must NOT be treated as preview even when item types overlap."""
+    world = _make_world(
+        bots=[
+            {"id": 0, "position": [4, 1], "inventory": []},
+        ],
+        items=[
+            {"id": "item_0", "type": "milk", "position": [5, 1]},
+            {"id": "item_1", "type": "bread", "position": [5, 3]},
+            {"id": "item_2", "type": "cheese", "position": [5, 5]},
+        ],
+        orders=[
+            {
+                "id": "order_0",
+                "items_required": ["milk", "bread", "cheese"],
+                "items_delivered": [],
+                "complete": False,
+                "status": "active",
+            },
+            {
+                "id": "order_1",
+                "items_required": ["milk", "bread"],
+                "items_delivered": [],
+                "complete": False,
+                "status": "preview",
+            },
+        ],
+    )
+
+    assignments = {0: BotAssignment(bot_id=0)}
+    # Mark ALL items as preview (simulating overlap between active and preview orders)
+    preview_ids = {"item_0", "item_1", "item_2"}
+
+    from bot.strategy.hungarian import solve_assignment
+    result = solve_assignment(
+        [world.state.bots[0]], world, assignments, set(), preview_ids,
+    )
+
+    task, route = result[0]
+    assert task.task_type == TaskType.PICK_UP
+    # Must get multi-item route even though all items are in preview_ids
+    assert route is not None, \
+        "Active order routes should use normal cost formula, not preview formula"
+    assert len(route.stops) >= 2
 
 
 def test_hungarian_two_bots_split_items():

@@ -189,5 +189,5 @@ class WorldModel:
         remaining = active[0].items_remaining
         if not remaining:
             return True
-        # Rough estimate: each item needs ~8 rounds (pick + navigate + deliver)
-        return len(remaining) * 8 <= self.rounds_remaining
+        # Use 6 rounds per item (tighter than old 8, accounts for multi-item batching)
+        return len(remaining) * 6 <= self.rounds_remaining

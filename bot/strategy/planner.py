@@ -37,6 +37,8 @@ class TaskPlanner:
         self._prev_inventory: dict[int, tuple[str, ...]] = {}
         self._stuck_deliver_rounds: dict[int, int] = {}
         self._stuck_pick_rounds: dict[int, int] = {}
+        # Blacklisted items: item_id -> round when blacklist expires
+        self._blacklisted_items: dict[str, int] = {}
 
     def plan(
         self,
@@ -55,8 +57,14 @@ class TaskPlanner:
         # Step 1: Invalidate stale tasks
         self._invalidate_stale(world, assignments)
 
-        # Step 2: Track what's already claimed (PICK_UP + PRE_PICK + route items)
-        claimed_items: set[str] = set()
+        # Step 1.5: Expire old blacklist entries
+        expired = [iid for iid, exp_round in self._blacklisted_items.items()
+                   if state.round >= exp_round]
+        for iid in expired:
+            del self._blacklisted_items[iid]
+
+        # Step 2: Track what's already claimed (PICK_UP + PRE_PICK + route items + blacklisted)
+        claimed_items: set[str] = set(self._blacklisted_items.keys())
         for a in assignments.values():
             # Claim all items in active routes
             if a.route:
@@ -72,6 +80,9 @@ class TaskPlanner:
         # Endgame check: if active order can't be completed, switch strategy
         if world.is_endgame() and not world.can_complete_active_order():
             self._plan_endgame(world, assignments, claimed_items)
+            # Save inventory snapshots (normally done at end of plan())
+            for bot in state.bots:
+                self._prev_inventory[bot.id] = bot.inventory
             return assignments
 
         # Step 3: Rush preview holders when active order is almost done
@@ -372,22 +383,67 @@ class TaskPlanner:
             if bot is None:
                 continue
 
-            # Bots with inventory: deliver immediately (no batching)
+            # Bots with inventory: deliver if matching active order
             if bot.inventory:
-                assignment.task = Task(
-                    task_type=TaskType.DELIVER,
-                    target_pos=state.drop_off,
-                )
-                assignment.path = None
-                logger.debug("Bot %d endgame: delivering inventory", bot_id)
-                continue
+                has_match = self._has_matching_items(bot, world)
+                if has_match:
+                    assignment.task = Task(
+                        task_type=TaskType.DELIVER,
+                        target_pos=state.drop_off,
+                    )
+                    assignment.path = None
+                    logger.debug("Bot %d endgame: delivering matching inventory", bot_id)
+                    continue
+                elif len(bot.inventory) >= 3:
+                    # Full inventory, nothing matches — can't do anything useful
+                    assignment.task = Task(task_type=TaskType.IDLE, target_pos=bot.position)
+                    logger.debug("Bot %d endgame: full non-matching inventory, idling", bot_id)
+                    continue
+                # Has non-matching items but capacity — fall through to pick matching items
+
+            # Try multi-item route if enough time
+            if world.rounds_remaining > 8:
+                active_orders = state.active_orders
+                if active_orders:
+                    from bot.strategy.route_builder import build_routes
+                    routes = build_routes(bot, world, active_orders[0], claimed_items)
+                    # Find best route that fits in remaining time
+                    for route in routes:
+                        if route.total_cost <= world.rounds_remaining and len(route.stops) > 1:
+                            first_stop = route.stops[0]
+                            assignment.task = Task(
+                                task_type=TaskType.PICK_UP,
+                                target_pos=first_stop.pickup_pos,
+                                item_id=first_stop.item_id,
+                                item_type=first_stop.item_type,
+                                item_pos=first_stop.item_pos,
+                                order_id=route.order_id,
+                            )
+                            assignment.route = route
+                            assignment.route_step = 0
+                            assignment.path = None
+                            for stop in route.stops:
+                                claimed_items.add(stop.item_id)
+                            logger.debug("Bot %d endgame: multi-item route (%d stops)",
+                                         bot_id, len(route.stops))
+                            break
+                    if assignment.has_task:
+                        continue
 
             # Bots without inventory: pick nearest deliverable item
+            # Prioritize items matching active order (only those can be delivered)
             best_task: Optional[Task] = None
             best_dist = 9999
+            active_types: set[str] = set()
+            if state.active_orders:
+                active_types = set(state.active_orders[0].items_remaining)
 
             for item in state.items:
                 if item.id in claimed_items:
+                    continue
+
+                # In endgame, skip non-matching items (can't deliver them)
+                if active_types and item.type not in active_types:
                     continue
 
                 pickup_pos = world.best_pickup_position(bot.position, item.position)
@@ -522,9 +578,12 @@ class TaskPlanner:
                     if d_to_target <= 1:  # At or adjacent to target
                         stuck = self._stuck_pick_rounds.get(bot_id, 0) + 1
                         self._stuck_pick_rounds[bot_id] = stuck
-                        if stuck >= 3:
-                            logger.debug("Bot %d: stuck picking for %d rounds, clearing",
-                                         bot_id, stuck)
+                        if stuck >= 5:
+                            logger.info("Bot %d: stuck picking %s for %d rounds, blacklisting",
+                                        bot_id, task.item_id, stuck)
+                            # Blacklist this item so it won't be reassigned immediately
+                            if task.item_id:
+                                self._blacklisted_items[task.item_id] = state.round + 8
                             assignment.clear()
                             self._stuck_pick_rounds.pop(bot_id, None)
                             continue
@@ -753,8 +812,34 @@ class TaskPlanner:
         if not remaining:
             return True  # Order will be complete with what we have
 
-        # Check if there are unclaimed items on the map we can still grab
+        # Check if picking more would COMPLETE the order (worth +5 bonus)
         available_slots = 3 - len(bot.inventory)
+        pickable_for_completion: list[Item] = []
+        check_remaining = list(remaining)
+        for item_type in check_remaining:
+            for item in world.items_of_type(item_type):
+                if item.id not in claimed_items:
+                    pickup_pos = world.best_pickup_position(bot.position, item.position)
+                    if pickup_pos is not None:
+                        pickable_for_completion.append(item)
+                        break
+
+        if (len(pickable_for_completion) == len(remaining)
+                and len(remaining) <= available_slots):
+            # Can complete entire order! Estimate time
+            pos = bot.position
+            total_pick_dist = 0
+            for item in pickable_for_completion:
+                pp = world.best_pickup_position(pos, item.position)
+                if pp:
+                    total_pick_dist += world.distance(pos, pp)
+                    pos = pp
+            d_final_drop = world.distance(pos, world.state.drop_off)
+            time_needed = total_pick_dist + len(pickable_for_completion) + d_final_drop + 2
+            if time_needed <= world.rounds_remaining:
+                return False  # Keep picking to complete order!
+
+        # Check if there are unclaimed items on the map we can still grab
         pickable = []
         for item_type in remaining:
             for item in world.items_of_type(item_type):
@@ -772,7 +857,7 @@ class TaskPlanner:
                 if world.best_pickup_position(bot.position, i.position) is not None
             )
             d_to_drop = world.distance(bot.position, world.state.drop_off)
-            rounds_needed = nearest_pick_dist + 1 + d_to_drop + 1 + 5  # +5 margin
+            rounds_needed = nearest_pick_dist + 1 + d_to_drop + 1 + 2  # +2 margin
             if rounds_needed <= world.rounds_remaining:
                 return False  # Keep picking
 

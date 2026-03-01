@@ -68,8 +68,11 @@ nmiai/
 - **Hungarian assignment**: globally optimal bot-to-route matching via scipy
 - **Navigation override**: staging bots use override, never mutate Task.target_pos
 - **Bot ID priority**: low-ID bots get critical tasks (collision right-of-way)
-- **Endgame mode**: last ~40 rounds, abandon incomplete orders, maximize items/round
+- **Endgame mode**: last ~40 rounds, multi-item routes if >8 rounds remain, only pick matching items
 - **Preview pre-staging**: idle bots pre-pick items for upcoming orders (auto-delivery on transition)
+- **Preview on the way**: routes completing active order add nearby preview items (max +4 extra steps)
+- **Order completion bonus**: Hungarian cost formula gives +5 effective items for order-completing routes
+- **Smart delivery gating**: _should_deliver_quick only force-delivers when full or completing order
 - **BFS distance cache**: cached per destination, shared across bots (many go to same drop-off)
 
 ## Task types
