@@ -13,8 +13,15 @@ import json
 import logging
 import os
 import sys
+from datetime import date
+from pathlib import Path
 
 import websockets
+
+try:
+    import scipy.optimize  # noqa: F401
+except ImportError:
+    pass
 
 from bot.coordinator import Coordinator
 
@@ -70,6 +77,15 @@ async def run(ws_url: str) -> None:
                     "Game over! Score: %s | Rounds: %s | Items: %s | Orders: %s",
                     score, rounds_used, items_delivered, orders_completed,
                 )
+                recon = coordinator._game_logger.finalize(
+                    data.get("rounds_used", 300), data.get("score", 0),
+                )
+                fp = recon.get("fingerprint", "unknown")
+                logs_dir = Path("logs")
+                logs_dir.mkdir(exist_ok=True)
+                recon_path = logs_dir / f"{fp}_{date.today()}_recon.json"
+                recon_path.write_text(json.dumps(recon, indent=2), encoding="utf-8")
+                logger.info("Recon saved to %s", recon_path)
                 coordinator.finalize_game(
                     total_rounds=data.get("rounds_used", 300),
                     final_score=data.get("score", 0),

@@ -240,14 +240,19 @@ class Coordinator:
 
         # Bots beyond the limit get redirected to staging via override
         staging = world.staging_positions()
+        used_staging: set[Pos] = set()
         for i, (_, bot_id) in enumerate(deliverers):
             if i >= max_slots and staging:
                 bot = world.state.get_bot(bot_id)
                 if bot:
+                    free = [p for p in staging if p not in used_staging]
+                    if not free:
+                        free = list(staging)
                     best_staging = min(
-                        staging,
+                        free,
                         key=lambda p: world.distance(bot.position, p),
                     )
+                    used_staging.add(best_staging)
                     self._assignments[bot_id].navigation_override = best_staging
                     self._assignments[bot_id].path = None  # Force recompute
 

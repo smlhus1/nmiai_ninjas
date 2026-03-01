@@ -132,10 +132,14 @@ def solve_assignment(
             d_delivery = world.distance(prev_pos, state.drop_off)
 
             # Total: travel + actions (1 per pick + 1 drop)
-            total_cost = d_first + inter_dist + d_delivery + len(route.stops) + 1
+            real_cost = d_first + inter_dist + d_delivery + len(route.stops) + 1
 
-            if total_cost > world.rounds_remaining:
+            if real_cost > world.rounds_remaining:
                 continue
+
+            # Weighted cost for assignment: penalize far drop-off
+            delivery_weight = 1.5
+            total_cost = d_first + inter_dist + (d_delivery * delivery_weight) + len(route.stops) + 1
 
             # Check all items are reachable from this bot
             all_reachable = all(
@@ -173,10 +177,11 @@ def solve_assignment(
                 cost_val = float(total_cost)
 
             # Switching penalty: discourage changing route
+            switch_pen = 1.5 if len(bots) >= 2 else 3.0
             if current_route_ids and not current_route_ids.intersection(route.item_ids):
-                cost_val += 3.0
+                cost_val += switch_pen
             elif current_item_id and current_item_id not in route.item_ids:
-                cost_val += 3.0
+                cost_val += switch_pen
 
             cost[i][j] = cost_val
 
@@ -360,10 +365,6 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     """
     if not bot.inventory:
         return False
-    if world.is_endgame():
-        return True
-    if len(bot.inventory) >= 3:
-        return True  # Full — can't pick more
 
     active = world.state.active_orders
     if not active:
@@ -371,8 +372,21 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
 
     order = active[0]
     remaining = list(order.items_remaining)
+    has_match = any(inv in remaining for inv in bot.inventory)
 
-    # Check if bot's inventory completes the order
+    if world.is_endgame():
+        return has_match
+
+    if len(bot.inventory) >= 3:
+        if has_match:
+            return True
+        preview = world.state.preview_orders
+        if preview:
+            preview_types = set(preview[0].items_remaining)
+            if any(inv in preview_types for inv in bot.inventory):
+                return False
+        return False
+
     remaining_copy = list(remaining)
     for inv_item in bot.inventory:
         if inv_item in remaining_copy:
@@ -380,11 +394,6 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     if not remaining_copy:
         return True  # All remaining items in inventory — deliver for +5!
 
-    # Has matching items but order not complete — let Hungarian decide
-    # (it may find a multi-item route that picks more before delivering)
-
-    # No active-order match: check preview for auto-delivery
-    has_match = any(inv in remaining for inv in bot.inventory)
     if not has_match:
         preview = world.state.preview_orders
         if preview:
@@ -392,4 +401,4 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
             if any(inv in preview_types for inv in bot.inventory):
                 return False  # Wait for auto-delivery
 
-    return False  # Don't force — let Hungarian handle it
+    return False

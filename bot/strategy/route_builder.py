@@ -23,7 +23,7 @@ from bot.strategy.task import Route, RouteStop
 logger = logging.getLogger(__name__)
 
 MAX_ROUTE_ITEMS = 3  # Inventory capacity
-MAX_CANDIDATES = 8   # Max routes to return
+MAX_CANDIDATES = 12  # Max routes to return
 MAX_STARTS = 8       # Max different start items to try
 
 
@@ -57,6 +57,7 @@ def build_routes(
     if not type_budget:
         return []
 
+    drop_off = world.state.drop_off
     available: list[tuple[Item, Pos]] = []
     EXTRA_ALTERNATIVES = 2
 
@@ -71,19 +72,21 @@ def build_routes(
             d = world.distance(bot.position, pickup_pos)
             type_items.append((item, pickup_pos, d))
 
-        type_items.sort(key=lambda x: x[2])
+        type_items.sort(key=lambda x: x[2] + world.distance(x[1], drop_off) * 0.5)
         for item, pickup_pos, _ in type_items[:count_needed + EXTRA_ALTERNATIVES]:
             available.append((item, pickup_pos))
 
         if count_needed > 1 and type_items:
-            nearest = type_items[0]
+            included = type_items[:count_needed + EXTRA_ALTERNATIVES]
+            included.sort(key=lambda x: x[2] + world.distance(x[1], drop_off))
+            best_camp = included[0]
             for k in range(1, count_needed):
                 camp_item = Item(
                     id=f"camp_{item_type}_{k}",
                     type=item_type,
-                    position=nearest[0].position,
+                    position=best_camp[0].position,
                 )
-                available.append((camp_item, nearest[1]))
+                available.append((camp_item, best_camp[1]))
 
     if not available:
         logger.debug("No items available for order. Budget=%s, items_on_map=%s",
@@ -95,7 +98,6 @@ def build_routes(
     if capacity <= 0:
         return []
 
-    drop_off = world.state.drop_off
     total_items_needed = sum(type_budget.values())
 
     routes: list[Route] = []
@@ -164,7 +166,7 @@ def build_routes(
             total_cost=trip_cost,
         ))
 
-    if len(available) <= 12:
+    if len(available) <= 10:
         for size in range(min(capacity, len(available)), 0, -1):
             for combo in combinations(range(len(available)), size):
                 combo_types = Counter(available[i][0].type for i in combo)
@@ -229,27 +231,43 @@ def build_routes(
             if +uncovered:
                 continue
             used_ids = {s.item_id for s in route.stops}
-            last_pos = route.stops[-1].pickup_pos
             preview_budget = Counter(preview_order.items_remaining)
+            base_walk = _tsp_cost(bot.position, route.stops)
+            added_preview = False
             for item_type in preview_budget:
                 if len(route.stops) >= capacity:
                     break
+                best_item = None
+                best_pp = None
+                best_extra = float('inf')
                 for item in world.items_of_type(item_type):
                     if item.id in used_ids or item.id in claimed_items:
                         continue
-                    pp = world.best_pickup_position(last_pos, item.position)
+                    pp = world.best_pickup_position(bot.position, item.position)
                     if pp is None:
                         continue
-                    d_direct = world.distance(last_pos, drop_off)
-                    d_via = world.distance(last_pos, pp) + world.distance(pp, drop_off)
-                    if d_via <= d_direct + 4:
-                        route.stops.append(RouteStop(
-                            item_id=item.id, item_type=item.type,
-                            item_pos=item.position, pickup_pos=pp,
-                        ))
-                        used_ids.add(item.id)
-                        last_pos = pp
-                        break
+                    trial = list(route.stops) + [RouteStop(
+                        item_id=item.id, item_type=item.type,
+                        item_pos=item.position, pickup_pos=pp,
+                    )]
+                    trial_walk = _tsp_cost(bot.position, trial)
+                    extra = trial_walk - base_walk
+                    max_extra = 4 if len(world.state.bots) >= 2 else 8
+                    if extra < best_extra and extra <= max_extra:
+                        best_extra = extra
+                        best_item = item
+                        best_pp = pp
+                if best_item and best_pp:
+                    route.stops.append(RouteStop(
+                        item_id=best_item.id, item_type=best_item.type,
+                        item_pos=best_item.position, pickup_pos=best_pp,
+                    ))
+                    used_ids.add(best_item.id)
+                    base_walk = _tsp_cost(bot.position, route.stops)
+                    added_preview = True
+            if added_preview:
+                route.stops = _tsp_order(bot.position, route.stops)
+                route.total_cost = _tsp_cost(bot.position, route.stops) + len(route.stops) + 1
 
     # Single-item fallbacks
     for item, pickup_pos in available:
@@ -268,8 +286,34 @@ def build_routes(
                 item_pos=item.position, pickup_pos=pickup_pos,
             )],
             order_id=order.id,
-            total_cost=effective,
+            total_cost=cost,
         ))
 
-    routes.sort(key=lambda r: r.total_cost)
-    return routes[:MAX_CANDIDATES]
+    # Ensure best routes per size are always included so Hungarian sees full-order trips
+    by_size: dict[int, list[Route]] = {}
+    for r in routes:
+        by_size.setdefault(len(r.stops), []).append(r)
+    for lst in by_size.values():
+        lst.sort(key=lambda r: r.total_cost)
+
+    result: list[Route] = []
+    seen_ids: set[frozenset[str]] = set()
+    SLOTS_PER_SIZE = 3
+    for size in sorted(by_size.keys(), reverse=True):
+        for r in by_size[size][:SLOTS_PER_SIZE]:
+            fids = frozenset(r.item_ids)
+            if fids not in seen_ids:
+                result.append(r)
+                seen_ids.add(fids)
+
+    all_sorted = sorted(routes, key=lambda r: r.total_cost)
+    for r in all_sorted:
+        if len(result) >= MAX_CANDIDATES:
+            break
+        fids = frozenset(r.item_ids)
+        if fids not in seen_ids:
+            result.append(r)
+            seen_ids.add(fids)
+
+    result.sort(key=lambda r: r.total_cost)
+    return result[:MAX_CANDIDATES]
