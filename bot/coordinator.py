@@ -27,6 +27,7 @@ from bot.engine.world_model import WorldModel
 from bot.strategy.planner import TaskPlanner
 from bot.strategy.action_resolver import ActionResolver
 from bot.strategy.task import BotAssignment, TaskType
+from bot.recon.logger import GameLogger
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ class Coordinator:
         self._last_bot_positions: dict[int, Pos] = {}
         self._round_offset = False
         self._offset_checked = False
+        self._game_logger = GameLogger()
+        self._shelf_positions: frozenset[Pos] = frozenset()
 
     def on_game_state(self, raw: dict[str, Any]) -> dict[str, Any]:
         """
@@ -80,9 +83,20 @@ class Coordinator:
             k: v for k, v in self._assignments.items() if k in active_ids
         }
 
-        # 5. Set up pathfinding
-        self._path_engine.set_grid(state.grid)
+        # 5. Set up pathfinding — merge shelf positions into grid walls
+        if not self._shelf_positions and state.items:
+            self._shelf_positions = frozenset(item.position for item in state.items)
+        if self._shelf_positions:
+            merged_walls = state.grid.walls | self._shelf_positions
+            from bot.models import Grid
+            merged_grid = Grid(state.grid.width, state.grid.height, merged_walls)
+            self._path_engine.set_grid(merged_grid)
+        else:
+            self._path_engine.set_grid(state.grid)
         self._path_engine.new_round()
+
+        # 5.5. Recon logging
+        self._game_logger.on_round(state, self._shelf_positions)
 
         # 6. Build world model
         world = WorldModel(state, self._path_engine)
@@ -237,6 +251,14 @@ class Coordinator:
                     self._assignments[bot_id].navigation_override = best_staging
                     self._assignments[bot_id].path = None  # Force recompute
 
+    def finalize_game(self, total_rounds: int, final_score: int) -> None:
+        """Called at game_over. Saves recon data and generates plan."""
+        recon_data = self._game_logger.finalize(total_rounds, final_score)
+        logger.info(
+            "Game finalized: score=%d, rounds=%d, orders=%d",
+            final_score, total_rounds, len(recon_data.get("order_sequence", [])),
+        )
+
     def reset(self) -> None:
         """Reset all state for a new game."""
         self._assignments.clear()
@@ -245,3 +267,5 @@ class Coordinator:
         self._last_bot_positions.clear()
         self._round_offset = False
         self._offset_checked = False
+        self._game_logger = GameLogger()
+        self._shelf_positions = frozenset()

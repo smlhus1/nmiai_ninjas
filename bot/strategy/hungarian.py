@@ -145,15 +145,11 @@ def solve_assignment(
             if not all_reachable:
                 continue
 
-            # Cost value based on order value
-            # Note: Hungarian only handles active order routes. Preview pre-picking
-            # is handled separately by _assign_preview_tasks in the planner.
             if route.order_id is not None:
                 order = next(
                     (o for o in active_orders if o.id == route.order_id), None
                 )
                 if order:
-                    # Check if this route + bot inventory completes the order
                     items_in_route = Counter(s.item_type for s in route.stops)
                     items_in_inv = Counter(bot.inventory)
                     combined = items_in_route + items_in_inv
@@ -163,9 +159,14 @@ def solve_assignment(
                     remaining_after = +remaining_after
                     completes_order = not remaining_after
 
-                    # Effective items: real items + 5 bonus if completing order
                     effective_items = len(route.stops) + (5 if completes_order else 0)
                     cost_val = total_cost / max(effective_items, 1)
+
+                    if not completes_order and remaining_after:
+                        leftover_cost = _estimate_leftover_cost(
+                            world, bot, remaining_after, route, claimed_items
+                        )
+                        cost_val += leftover_cost / max(effective_items, 1)
                 else:
                     cost_val = total_cost / max(len(route.stops), 1)
             else:
@@ -305,6 +306,50 @@ def _assign_non_order_items(
         )
 
     return result
+
+
+def _estimate_leftover_cost(
+    world: WorldModel,
+    bot: Bot,
+    remaining_types: Counter,
+    current_route: "Route",
+    claimed_items: set[str],
+) -> float:
+    """
+    Estimate the round cost of picking up and delivering the items that
+    don't fit in the current route. Used to penalize routes that leave
+    expensive items behind.
+    """
+    drop_off = world.state.drop_off
+    route_item_ids = current_route.item_ids
+
+    leftover_pickups: list[tuple[float, "Pos"]] = []
+    for item_type, count in remaining_types.items():
+        found = 0
+        for item in world.items_of_type(item_type):
+            if item.id in claimed_items or item.id in route_item_ids:
+                continue
+            pp = world.best_pickup_position(drop_off, item.position)
+            if pp is None:
+                continue
+            d_round_trip = world.distance(drop_off, pp) + world.distance(pp, drop_off)
+            leftover_pickups.append((d_round_trip, pp))
+            found += 1
+            if found >= count:
+                break
+
+    if not leftover_pickups:
+        return 0.0
+
+    leftover_pickups.sort()
+    total = 0.0
+    batch_size = 3
+    for i in range(0, len(leftover_pickups), batch_size):
+        batch = leftover_pickups[i:i + batch_size]
+        farthest_rt = max(rt for rt, _ in batch)
+        total += farthest_rt + len(batch) + 1
+
+    return total
 
 
 def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:

@@ -18,11 +18,24 @@ from bot.models import (
     GameState,
     Pos,
 )
+from typing import Optional
 from bot.engine.pathfinding import PathEngine
 from bot.engine.pibt import PIBTResolver
 from bot.strategy.task import BotAssignment, TaskType
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_camp_item(
+    state: GameState,
+    shelf_pos: Pos,
+    item_type: str | None,
+) -> str | None:
+    """Find an actual item at a shelf position for camp-style picks."""
+    for item in state.items:
+        if item.position == shelf_pos and (item_type is None or item.type == item_type):
+            return item.id
+    return None
 
 
 class ActionResolver:
@@ -66,15 +79,20 @@ class ActionResolver:
                 movement_targets[bot.id] = idle_target
                 continue
 
-            # PICK_UP / PRE_PICK: adjacent to shelf and has capacity?
             if task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK):
                 if task.item_pos and task.item_id:
                     if (self._path.manhattan(bot.position, task.item_pos) == 1
                             and len(bot.inventory) < 3):
-                        commands[bot.id] = BotCommand(
-                            bot.id, Action.PICK_UP, item_id=task.item_id
-                        )
-                        continue
+                        item_id = task.item_id
+                        if item_id.startswith("camp_"):
+                            item_id = _resolve_camp_item(
+                                state, task.item_pos, task.item_type
+                            )
+                        if item_id:
+                            commands[bot.id] = BotCommand(
+                                bot.id, Action.PICK_UP, item_id=item_id
+                            )
+                            continue
 
             # DELIVER: at drop-off? (use state.drop_off, not task.target_pos)
             if task.task_type == TaskType.DELIVER:
@@ -137,6 +155,7 @@ class ActionResolver:
 
     @staticmethod
     def _pos_to_action(from_pos: Pos, to_pos: Pos) -> Action:
+        """Convert a position change to a movement action."""
         """Convert a position change to a movement action."""
         dx = to_pos[0] - from_pos[0]
         dy = to_pos[1] - from_pos[1]

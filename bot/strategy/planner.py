@@ -184,13 +184,15 @@ class TaskPlanner:
                 assignment.path = None
                 continue
 
-            # Check if current item has been picked up:
-            # 1. Item disappeared from map (finite supply)
-            # 2. Bot's inventory gained the expected type (infinite supply shelves)
-            picked_up = (
-                current_stop.item_id not in current_item_ids
-                or self._item_picked_up(bot_id, current_stop.item_type, bot.inventory)
-            )
+            if current_stop.item_id.startswith("camp_"):
+                picked_up = self._item_picked_up(
+                    bot_id, current_stop.item_type, bot.inventory
+                )
+            else:
+                picked_up = (
+                    current_stop.item_id not in current_item_ids
+                    or self._item_picked_up(bot_id, current_stop.item_type, bot.inventory)
+                )
 
             if picked_up:
                 assignment.route_step += 1
@@ -517,11 +519,11 @@ class TaskPlanner:
                 assignment.clear()
                 continue
 
-            # Invalidate future route stops that are gone
             if assignment.route:
                 remaining_stops = assignment.route.stops[assignment.route_step:]
                 remaining_stops = [
-                    s for s in remaining_stops if s.item_id in current_item_ids
+                    s for s in remaining_stops
+                    if s.item_id in current_item_ids or s.item_id.startswith("camp_")
                 ]
                 if not remaining_stops:
                     # All remaining route items gone -> clear route, let delivery or reassignment happen
@@ -614,8 +616,9 @@ class TaskPlanner:
                     self._stuck_pick_rounds.pop(bot_id, None)
 
             if task.task_type == TaskType.PICK_UP:
-                # Item no longer exists (someone else grabbed it)
-                if task.item_id and task.item_id not in current_item_ids:
+                if (task.item_id
+                        and task.item_id not in current_item_ids
+                        and not task.item_id.startswith("camp_")):
                     logger.debug("Bot %d: item %s gone, clearing task", bot_id, task.item_id)
                     assignment.clear()
 

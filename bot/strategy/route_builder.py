@@ -57,9 +57,8 @@ def build_routes(
     if not type_budget:
         return []
 
-    # Find candidate items per type, limited to budget count
-    # For each type, pick the closest N items (where N = budget for that type)
     available: list[tuple[Item, Pos]] = []
+    EXTRA_ALTERNATIVES = 2
 
     for item_type, count_needed in type_budget.items():
         type_items: list[tuple[Item, Pos, float]] = []
@@ -72,10 +71,19 @@ def build_routes(
             d = world.distance(bot.position, pickup_pos)
             type_items.append((item, pickup_pos, d))
 
-        # Sort by distance, take only what the order needs
         type_items.sort(key=lambda x: x[2])
-        for item, pickup_pos, _ in type_items[:count_needed]:
+        for item, pickup_pos, _ in type_items[:count_needed + EXTRA_ALTERNATIVES]:
             available.append((item, pickup_pos))
+
+        if count_needed > 1 and type_items:
+            nearest = type_items[0]
+            for k in range(1, count_needed):
+                camp_item = Item(
+                    id=f"camp_{item_type}_{k}",
+                    type=item_type,
+                    position=nearest[0].position,
+                )
+                available.append((camp_item, nearest[1]))
 
     if not available:
         logger.debug("No items available for order. Budget=%s, items_on_map=%s",
@@ -129,26 +137,6 @@ def build_routes(
                 best_order = list(perm)
         return [stops[i] for i in best_order]
 
-    def _leftover_cost(used_ids: set[str]) -> float:
-        """Estimate cost of picking up and delivering remaining order items."""
-        leftover = [(item, pp) for item, pp in available if item.id not in used_ids]
-        if not leftover:
-            return 0.0
-        leftover_stops = [
-            RouteStop(item_id=it.id, item_type=it.type,
-                      item_pos=it.position, pickup_pos=pp)
-            for it, pp in leftover
-        ]
-        cost = 0.0
-        pos = drop_off
-        while leftover_stops:
-            batch = leftover_stops[:MAX_ROUTE_ITEMS]
-            leftover_stops = leftover_stops[MAX_ROUTE_ITEMS:]
-            walk = _tsp_cost(pos, batch)
-            cost += walk + len(batch) + 1
-            pos = drop_off
-        return cost
-
     def _make_route(stops: list[RouteStop]) -> None:
         """Create a route from stops, apply TSP ordering, add to results."""
         ordered = _tsp_order(bot.position, stops)
@@ -176,7 +164,7 @@ def build_routes(
             total_cost=trip_cost,
         ))
 
-    if total_items_needed > capacity and len(available) <= 8:
+    if len(available) <= 12:
         for size in range(min(capacity, len(available)), 0, -1):
             for combo in combinations(range(len(available)), size):
                 combo_types = Counter(available[i][0].type for i in combo)
@@ -189,8 +177,7 @@ def build_routes(
                         item_pos=available[i][0].position, pickup_pos=available[i][1],
                     ) for i in combo
                 ]
-                used_ids = {s.item_id for s in stops}
-                _make_route(stops, used_ids)
+                _make_route(stops)
     else:
         starts = available[:MAX_STARTS]
         for start_item, start_pickup in starts:
@@ -228,7 +215,7 @@ def build_routes(
                 used_types[item.type] += 1
                 current_pos = pickup_pos
 
-            _make_route(stops, used_ids)
+            _make_route(stops)
 
     # Cross-order pre-picking: if route completes active order, add preview items
     if preview_order:
@@ -275,9 +262,6 @@ def build_routes(
         if cost > world.rounds_remaining:
             continue
         seen_item_sets.add(item_set)
-        effective = cost
-        if total_items_needed > capacity:
-            effective += _leftover_cost({item.id})
         routes.append(Route(
             stops=[RouteStop(
                 item_id=item.id, item_type=item.type,

@@ -86,7 +86,7 @@ class SimState:
             "grid": {
                 "width": self.grid_width,
                 "height": self.grid_height,
-                "walls": [list(w) for w in sorted(self.walls | self.shelves)],
+                "walls": [list(w) for w in sorted(self.walls)],
             },
             "bots": [
                 {"id": b.id, "position": list(b.position),
