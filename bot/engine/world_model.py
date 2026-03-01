@@ -178,8 +178,10 @@ class WorldModel:
         return {b.position for b in self.state.bots if b.id != bot_id}
 
     def is_endgame(self, threshold: int = 40) -> bool:
-        """True if we're in the last `threshold` rounds."""
-        return self.rounds_remaining <= threshold
+        """True if we're in endgame. Threshold scales with bot count."""
+        n_bots = max(len(self.state.bots), 1)
+        dynamic_threshold = max(15, threshold * 2 // (n_bots + 1))
+        return self.rounds_remaining <= dynamic_threshold
 
     def can_complete_active_order(self) -> bool:
         """Estimate whether the active order can be completed in remaining rounds."""
@@ -189,5 +191,7 @@ class WorldModel:
         remaining = active[0].items_remaining
         if not remaining:
             return True
-        # Use 6 rounds per item (tighter than old 8, accounts for multi-item batching)
-        return len(remaining) * 6 <= self.rounds_remaining
+        n_bots = max(len(self.state.bots), 1)
+        rounds_per_item = 6
+        effective_rounds = len(remaining) * rounds_per_item / n_bots
+        return effective_rounds <= self.rounds_remaining

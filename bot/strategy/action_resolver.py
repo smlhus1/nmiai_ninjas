@@ -58,15 +58,19 @@ class ActionResolver:
 
             task = assignment.task
             if task is None or task.task_type == TaskType.IDLE:
-                # Stationary bot — include in PIBT with target=current
+                # IDLE bot: use navigation_override if set, else current position
+                idle_target = bot.position
+                if assignment.navigation_override:
+                    idle_target = assignment.navigation_override
                 movement_bots[bot.id] = bot
-                movement_targets[bot.id] = bot.position
+                movement_targets[bot.id] = idle_target
                 continue
 
-            # PICK_UP / PRE_PICK: adjacent to shelf?
+            # PICK_UP / PRE_PICK: adjacent to shelf and has capacity?
             if task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK):
                 if task.item_pos and task.item_id:
-                    if self._path.manhattan(bot.position, task.item_pos) == 1:
+                    if (self._path.manhattan(bot.position, task.item_pos) == 1
+                            and len(bot.inventory) < 3):
                         commands[bot.id] = BotCommand(
                             bot.id, Action.PICK_UP, item_id=task.item_id
                         )
@@ -83,17 +87,42 @@ class ActionResolver:
             movement_bots[bot.id] = bot
             movement_targets[bot.id] = target
 
+        # Step 1.5: Add stationary bots (pick_up/drop_off) to PIBT as obstacles.
+        # Without this, PIBT doesn't know these positions are occupied and sends
+        # moving bots into them, causing collisions in the game engine.
+        for bot in sorted_bots:
+            if bot.id in commands and bot.id not in movement_bots:
+                movement_bots[bot.id] = bot
+                movement_targets[bot.id] = bot.position  # Stay in place
+
         # Step 2: Run PIBT for all moving bots
         if movement_bots:
-            pibt = PIBTResolver(state.grid, self._path.distance)
+            pibt = PIBTResolver(state.grid, self._path.distance, self._path.corridors)
             bot_positions = {bid: bot.position for bid, bot in movement_bots.items()}
 
+            # Identify IDLE bots so PIBT gives them lowest priority
+            # (prevents navigation_override from giving artificial high priority)
+            idle_bot_ids: set[int] = set()
+            for bot_id in movement_bots:
+                assignment = assignments.get(bot_id)
+                if assignment:
+                    task = assignment.task
+                    if task is None or task.task_type == TaskType.IDLE:
+                        idle_bot_ids.add(bot_id)
+                # Stationary bots (pick_up/drop_off added as obstacles) are also idle-priority
+                if bot_id in commands:
+                    idle_bot_ids.add(bot_id)
+
             next_positions = pibt.resolve(
-                bot_positions, movement_targets, tiebreak_offset=state.round
+                bot_positions, movement_targets,
+                tiebreak_offset=state.round,
+                idle_bots=idle_bot_ids,
             )
 
-            # Step 3: Convert positions to actions
+            # Step 3: Convert positions to actions (skip bots that already have commands)
             for bot_id, next_pos in next_positions.items():
+                if bot_id in commands:
+                    continue  # Stationary bot — keep pick_up/drop_off command
                 bot = movement_bots[bot_id]
                 action = self._pos_to_action(bot.position, next_pos)
                 commands[bot_id] = BotCommand(bot_id, action)

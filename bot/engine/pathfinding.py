@@ -31,12 +31,20 @@ class PathEngine:
         self._distance_cache: dict[Pos, dict[Pos, int]] = {}
         # Dynamic obstacles for current round (other bot positions, etc.)
         self._obstacles: set[Pos] = set()
+        # Corridor cells: 1-wide passages with exactly 2 collinear walkable neighbors
+        self._corridors: frozenset[Pos] = frozenset()
 
     def set_grid(self, grid: Grid) -> None:
         """Update grid. Clears all caches if grid changed."""
         if self._grid != grid:
             self._grid = grid
             self._distance_cache.clear()
+            self._corridors = self._detect_corridors(grid)
+
+    @property
+    def corridors(self) -> frozenset[Pos]:
+        """1-wide corridor cells detected at grid setup."""
+        return self._corridors
 
     def new_round(self, obstacles: set[Pos] | None = None) -> None:
         """Reset per-round state. Call at start of each round."""
@@ -130,6 +138,26 @@ class PathEngine:
             if grid.is_walkable((nx, ny)):
                 result.append((nx, ny))
         return result
+
+    @staticmethod
+    def _detect_corridors(grid: Grid) -> frozenset[Pos]:
+        """Detect 1-wide corridor cells (exactly 2 collinear walkable neighbors)."""
+        corridors: set[Pos] = set()
+        for x in range(grid.width):
+            for y in range(grid.height):
+                pos = (x, y)
+                if not grid.is_walkable(pos):
+                    continue
+                neighbors = []
+                for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+                    n = (x + dx, y + dy)
+                    if grid.is_walkable(n):
+                        neighbors.append(n)
+                if len(neighbors) == 2:
+                    # Check collinear: both same x (vertical corridor) or same y (horizontal)
+                    if neighbors[0][0] == neighbors[1][0] or neighbors[0][1] == neighbors[1][1]:
+                        corridors.add(pos)
+        return frozenset(corridors)
 
     def _bfs_distances(self, origin: Pos) -> dict[Pos, int]:
         """BFS from origin to all reachable positions. Ignores dynamic obstacles."""

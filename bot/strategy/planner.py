@@ -40,6 +40,27 @@ class TaskPlanner:
         # Blacklisted items: item_id -> round when blacklist expires
         self._blacklisted_items: dict[str, int] = {}
 
+    def maintain(
+        self,
+        world: WorldModel,
+        assignments: dict[int, BotAssignment],
+    ) -> dict[int, BotAssignment]:
+        """
+        Task lifecycle management only: advance routes, invalidate stale tasks,
+        expire blacklists, update inventory snapshots. No new assignments.
+        Used by ReplayPlanner to keep task state healthy without overriding plan.
+        """
+        state = world.state
+        self._advance_routes(world, assignments)
+        self._invalidate_stale(world, assignments)
+        expired = [iid for iid, exp_round in self._blacklisted_items.items()
+                   if state.round >= exp_round]
+        for iid in expired:
+            del self._blacklisted_items[iid]
+        for bot in state.bots:
+            self._prev_inventory[bot.id] = bot.inventory
+        return assignments
+
     def plan(
         self,
         world: WorldModel,

@@ -36,6 +36,27 @@ async def run(ws_url: str) -> None:
             data = json.loads(message)
             msg_type = data.get("type")
 
+            # Drain buffered messages to prevent desync after network delays.
+            # If multiple game_states arrived while we were processing, skip to
+            # the latest one. This prevents a permanent 1-round offset where our
+            # actions get applied to the wrong round.
+            while True:
+                try:
+                    buffered = await asyncio.wait_for(ws.recv(), timeout=0.005)
+                    buffered_data = json.loads(buffered)
+                    if buffered_data.get("type") == "game_over":
+                        data = buffered_data
+                        msg_type = "game_over"
+                        break
+                    if buffered_data.get("type") == "game_state":
+                        skipped_round = data.get("round", "?")
+                        data = buffered_data
+                        msg_type = "game_state"
+                        logger.warning("Draining stale round %s, jumping to round %s",
+                                       skipped_round, data.get("round", "?"))
+                except (asyncio.TimeoutError, TimeoutError):
+                    break
+
             if msg_type == "game_state":
                 response = coordinator.on_game_state(data)
                 await ws.send(json.dumps(response))
@@ -48,6 +69,10 @@ async def run(ws_url: str) -> None:
                 logger.info(
                     "Game over! Score: %s | Rounds: %s | Items: %s | Orders: %s",
                     score, rounds_used, items_delivered, orders_completed,
+                )
+                coordinator.finalize_game(
+                    total_rounds=data.get("rounds_used", 300),
+                    final_score=data.get("score", 0),
                 )
                 coordinator.reset()
                 break
