@@ -128,6 +128,14 @@ def solve_assignment(
             if len(route.stops) > capacity:
                 continue
 
+            # Force single-item routes when we have enough spare bots.
+            # Multi-item routes cause sequential pick+deliver by one bot,
+            # while single-item routes enable parallel delivery.
+            # Only force when there are 2+ spare bots for preview pre-picking.
+            if (prefer_parallel and len(route.stops) > 1
+                    and n_bots > n_items_still_needed + 1):
+                continue
+
             # Calculate cost from THIS bot's position
             first_stop = route.stops[0]
             d_first = world.distance(bot.position, first_stop.pickup_pos)
@@ -182,11 +190,6 @@ def solve_assignment(
                     cost_val = total_cost / max(len(route.stops), 1)
             else:
                 cost_val = float(total_cost)
-
-            # Parallelism penalty: when enough bots exist to split work,
-            # prefer single-item routes to enable parallel picking
-            if prefer_parallel and len(route.stops) > 1:
-                cost_val += 2.0 * (len(route.stops) - 1)
 
             # Switching penalty: discourage changing route
             if current_route_ids and not current_route_ids.intersection(route.item_ids):

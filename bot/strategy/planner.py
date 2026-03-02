@@ -130,6 +130,29 @@ class TaskPlanner(AssignmentMixin, ValidationMixin, DecisionsMixin):
         self._assign_preview_tasks(world, state, unassigned, assignments, claimed_items)
 
         # Phase C: Remaining bots get fallback tasks
+        # Compute active-order type coverage to prevent over-picking
+        # (only with 4+ bots — with fewer bots, multi-item routes handle this)
+        covered_types: set[str] = set()
+        if state.active_orders and len(state.bots) >= 4:
+            active_budget = Counter(state.active_orders[0].items_remaining)
+            for bot_obj in state.bots:
+                for inv_item in bot_obj.inventory:
+                    if active_budget[inv_item] > 0:
+                        active_budget[inv_item] -= 1
+            for a in assignments.values():
+                if a.task and a.task.task_type == TaskType.PICK_UP and a.task.item_type:
+                    if active_budget[a.task.item_type] > 0:
+                        active_budget[a.task.item_type] -= 1
+                if a.route:
+                    for stop in a.route.stops[a.route_step:]:
+                        if active_budget[stop.item_type] > 0:
+                            active_budget[stop.item_type] -= 1
+            active_budget = +active_budget
+            if state.active_orders:
+                for t in state.active_orders[0].items_remaining:
+                    if active_budget.get(t, 0) == 0:
+                        covered_types.add(t)
+
         unassigned = sorted(
             bot_id for bot_id, a in assignments.items() if not a.has_task
         )
@@ -137,7 +160,9 @@ class TaskPlanner(AssignmentMixin, ValidationMixin, DecisionsMixin):
             bot = state.get_bot(bot_id)
             if bot is None:
                 continue
-            task = self._find_fallback_task(world, bot, claimed_items, assignments)
+            task = self._find_fallback_task(
+                world, bot, claimed_items, assignments, covered_types
+            )
             if task:
                 assignments[bot_id].task = task
                 assignments[bot_id].path = None

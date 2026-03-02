@@ -213,6 +213,7 @@ class DecisionsMixin:
         bot: Bot,
         claimed_items: set[str],
         assignments: dict[int, BotAssignment] | None = None,
+        covered_types: set[str] | None = None,
     ) -> Optional[Task]:
         """Pick up any unclaimed item, or IDLE."""
         state = world.state
@@ -242,6 +243,10 @@ class DecisionsMixin:
         for order in state.orders:
             if not order.complete:
                 wanted_types.update(order.items_remaining)
+
+        # Skip active-order types that are already fully covered by other bots
+        if covered_types:
+            wanted_types -= covered_types
 
         for item in state.items:
             if item.type not in wanted_types:
@@ -359,7 +364,33 @@ class DecisionsMixin:
 
         if (len(pickable_for_completion) == len(remaining)
                 and len(remaining) <= available_slots):
-            # Can complete entire order! Estimate time
+            # Can complete entire order! But first check if other bots already
+            # have the remaining items — if so, don't try to solo-complete
+            if assignments and len(world.state.bots) >= 4:
+                from collections import Counter
+                remaining_counter = Counter(remaining)
+                team_has: Counter = Counter()
+                for other_bot in world.state.bots:
+                    if other_bot.id == bot.id:
+                        continue
+                    for inv_item in other_bot.inventory:
+                        if inv_item in remaining_counter:
+                            team_has[inv_item] += 1
+                for bid, a in assignments.items():
+                    if bid == bot.id:
+                        continue
+                    if (a.task and a.task.task_type == TaskType.PICK_UP
+                            and a.task.item_type in remaining_counter):
+                        team_has[a.task.item_type] += 1
+                    if a.route:
+                        for stop in a.route.stops[a.route_step:]:
+                            if stop.item_type in remaining_counter:
+                                team_has[stop.item_type] += 1
+                if all(team_has.get(t, 0) >= remaining_counter[t]
+                       for t in remaining_counter):
+                    return True  # Team has it covered, deliver now
+
+            # Estimate time to pick remaining + deliver
             pos = bot.position
             total_pick_dist = 0
             for item in pickable_for_completion:
