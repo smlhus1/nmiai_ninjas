@@ -339,10 +339,15 @@ class Coordinator:
         adjacent = world.dropoff_adjacent_positions() if n_bots <= 5 else []
         staging = world.staging_positions()
         other_positions = set()
+        drop_off = world.state.drop_off
         for i, (_, _, bot_id) in enumerate(deliverers):
             if i >= max_slots:
                 bot = world.state.get_bot(bot_id)
                 if bot:
+                    # Don't send bots already near drop-off to distant staging
+                    d_to_drop = world.distance(bot.position, drop_off)
+                    if d_to_drop <= 2:
+                        continue  # Already close — let it wait naturally, don't redirect
                     free_adj = [p for p in adjacent if p not in other_positions]
                     if free_adj:
                         target = min(free_adj, key=lambda p: world.distance(bot.position, p))
