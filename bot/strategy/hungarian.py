@@ -128,13 +128,16 @@ def solve_assignment(
             if len(route.stops) > capacity:
                 continue
 
-            # Force single-item routes when we have enough spare bots.
-            # Multi-item routes cause sequential pick+deliver by one bot,
-            # while single-item routes enable parallel delivery.
-            # Only force when there are 2+ spare bots for preview pre-picking.
-            if (prefer_parallel and len(route.stops) > 1
-                    and n_bots > n_items_still_needed + 1):
-                continue
+            # For many bots (8+), penalize multi-item routes instead of
+            # blocking them, allowing genuinely efficient batches through.
+            # For fewer bots (<8), strictly force parallel single-item routes
+            # to avoid sequential bottlenecks on constrained maps.
+            parallel_penalty = 0.0
+            if prefer_parallel and len(route.stops) > 1:
+                if n_bots >= 8 and n_bots > n_items_still_needed + 1:
+                    parallel_penalty = 2.0
+                elif n_bots > n_items_still_needed + 1:
+                    continue  # Block multi-item for <8 bots
 
             # Calculate cost from THIS bot's position
             first_stop = route.stops[0]
@@ -197,7 +200,7 @@ def solve_assignment(
             elif current_item_id and current_item_id not in route.item_ids:
                 cost_val += 3.0
 
-            cost[i][j] = cost_val
+            cost[i][j] = cost_val + parallel_penalty
 
     # Solve assignment
     try:
