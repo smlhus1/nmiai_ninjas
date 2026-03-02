@@ -103,7 +103,7 @@ class ActionResolver:
                         remaining = list(active[0].items_remaining)
                         has_match = any(inv in remaining for inv in bot.inventory)
                     else:
-                        has_match = bool(bot.inventory)
+                        has_match = False  # No active order = nothing can be delivered
                     if has_match:
                         commands[bot.id] = BotCommand(bot.id, Action.DROP_OFF)
                         continue

@@ -101,30 +101,15 @@ def build_routes(
     routes: list[Route] = []
     seen_item_sets: set[frozenset[str]] = set()
 
-    def _tsp_cost(bot_pos: Pos, stops: list[RouteStop]) -> float:
-        """Optimal walking distance via brute-force TSP (up to 6! = 720 perms)."""
+    def _tsp_solve(bot_pos: Pos, stops: list[RouteStop]) -> tuple[list[RouteStop], float]:
+        """Find TSP-optimal ordering and walking distance in one pass."""
         if len(stops) <= 1:
             if not stops:
-                return 0.0
-            return (world.distance(bot_pos, stops[0].pickup_pos)
+                return [], 0.0
+            cost = (world.distance(bot_pos, stops[0].pickup_pos)
                     + world.distance(stops[0].pickup_pos, drop_off))
+            return list(stops), cost
 
-        best = float('inf')
-        best_order: list[int] | None = None
-        for perm in permutations(range(len(stops))):
-            cost = world.distance(bot_pos, stops[perm[0]].pickup_pos)
-            for k in range(1, len(perm)):
-                cost += world.distance(stops[perm[k-1]].pickup_pos, stops[perm[k]].pickup_pos)
-            cost += world.distance(stops[perm[-1]].pickup_pos, drop_off)
-            if cost < best:
-                best = cost
-                best_order = list(perm)
-        return best
-
-    def _tsp_order(bot_pos: Pos, stops: list[RouteStop]) -> list[RouteStop]:
-        """Return stops in TSP-optimal order."""
-        if len(stops) <= 1:
-            return list(stops)
         best_cost = float('inf')
         best_order = list(range(len(stops)))
         for perm in permutations(range(len(stops))):
@@ -135,12 +120,11 @@ def build_routes(
             if cost < best_cost:
                 best_cost = cost
                 best_order = list(perm)
-        return [stops[i] for i in best_order]
+        return [stops[i] for i in best_order], best_cost
 
     def _make_route(stops: list[RouteStop]) -> None:
         """Create a route from stops, apply TSP ordering, add to results."""
-        ordered = _tsp_order(bot.position, stops)
-        walk = _tsp_cost(bot.position, ordered)
+        ordered, walk = _tsp_solve(bot.position, stops)
         trip_cost = walk + len(ordered) + 1
 
         if trip_cost > world.rounds_remaining:
