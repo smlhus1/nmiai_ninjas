@@ -60,6 +60,14 @@ class ReplayPlanner:
         if self._mode == "reactive":
             return self._reactive.plan(world, assignments)
 
+        # Auto-switch to reactive for multi-bot scenarios (replay plan
+        # is optimized for single-bot sequential execution)
+        if len(world.state.bots) > 2:
+            logger.info("REPLAY: %d bots detected — switching to reactive",
+                        len(world.state.bots))
+            self._mode = "reactive"
+            return self._reactive.plan(world, assignments)
+
         state = world.state
 
         # Maintenance: advance routes, invalidate stale tasks, track inventory.

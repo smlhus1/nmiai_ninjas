@@ -23,7 +23,7 @@ from bot.strategy.task import Route, RouteStop
 logger = logging.getLogger(__name__)
 
 MAX_ROUTE_ITEMS = 3  # Inventory capacity
-MAX_CANDIDATES = 8   # Max routes to return
+MAX_CANDIDATES = 8   # Max routes to return (baseline for 3+ bots)
 MAX_STARTS = 8       # Max different start items to try
 
 

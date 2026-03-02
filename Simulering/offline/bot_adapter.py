@@ -130,6 +130,13 @@ class BotAdapter:
     def _make_coordinator(self) -> Coordinator:
         coord = Coordinator()
         coord._logs_dir = self._logs_dir
+        if self._force_plan:
+            from bot.recon.replay import ReplayPlanner
+            from bot.strategy.planner import TaskPlanner
+            coord._active_planner = ReplayPlanner(self._force_plan, TaskPlanner())
+            coord._replay_checked = True  # Don't try loading from disk
+            logger.info("BotAdapter: injected force_plan with %d order plans",
+                        len(self._force_plan.get("order_plans", [])))
         return coord
 
     def _quiet_bot_loggers(self) -> None:
