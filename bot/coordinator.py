@@ -247,7 +247,9 @@ class Coordinator:
 
     def _detect_stuck_bots(self, state: GameState, world: WorldModel) -> None:
         """Detect bots that haven't moved for many rounds and reassign them."""
-        STUCK_THRESHOLD = 5
+        # With 4+ bots, collisions are more frequent and 3-round stuck is normal
+        # for PIBT resolution. Use tighter threshold for many bots.
+        STUCK_THRESHOLD = 3 if len(state.bots) >= 4 else 5
 
         for bot in state.bots:
             prev_pos = self._last_bot_positions.get(bot.id)
