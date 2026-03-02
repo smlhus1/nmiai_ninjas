@@ -430,9 +430,11 @@ class DecisionsMixin:
             if rounds_needed > world.rounds_remaining:
                 return True  # Not enough time, deliver now
 
-            # Don't detour if picking adds too many rounds vs direct delivery
+            # Don't detour if picking adds too many rounds vs direct delivery.
+            # With many bots, prefer delivering sooner — other bots handle items.
+            detour_limit = 6 if len(world.state.bots) >= 5 else 10
             detour_cost = nearest_pick_dist + 1
-            if detour_cost > 10:
+            if detour_cost > detour_limit:
                 return True  # Detour too expensive, deliver now
 
             return False  # Keep picking

@@ -202,9 +202,10 @@ def build_routes(
             _make_route(stops)
 
     # Cross-order pre-picking: if route completes active order, add preview items
-    # Only for single-bot scenarios — with multiple bots, dedicated preview pickers handle this
-    # to avoid over-picking preview items (causes permanent stale inventory)
-    if preview_order and len(world.state.bots) <= 2:
+    # "on the way" to drop-off. With LOCAL auto-delivery, the delivering bot
+    # gets its preview items auto-delivered on order transition, so this is
+    # efficient for any bot count when the route completes the active order.
+    if preview_order:
         for route in list(routes):
             if len(route.stops) >= capacity:
                 continue
