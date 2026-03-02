@@ -409,11 +409,11 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
         if active:
             remaining = list(active[0].items_remaining)
             return any(inv in remaining for inv in bot.inventory)
-        return True  # No active order — deliver anything
+        return False  # No active order = nothing can be delivered
 
     active = world.state.active_orders
     if not active:
-        return bool(bot.inventory)
+        return False  # No active order = nothing can be delivered
 
     order = active[0]
     remaining = list(order.items_remaining)
