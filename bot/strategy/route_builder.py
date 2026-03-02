@@ -58,7 +58,7 @@ def build_routes(
         return []
 
     available: list[tuple[Item, Pos]] = []
-    EXTRA_ALTERNATIVES = 2
+    EXTRA_ALTERNATIVES = 3 if len(world.state.bots) == 5 else 2
 
     for item_type, count_needed in type_budget.items():
         type_items: list[tuple[Item, Pos, float]] = []
