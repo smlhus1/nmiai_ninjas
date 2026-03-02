@@ -239,12 +239,14 @@ class WorldModel:
         # Also track their delivery cost (must still reach drop-off)
         inventory_matches: list[int] = []  # delivery costs
         for bot in self.state.bots:
+            matched = False
             for inv_item in bot.inventory:
                 if inv_item in remaining:
                     remaining.remove(inv_item)
-                    d_drop = self.distance(bot.position, self.state.drop_off) + 1
-                    inventory_matches.append(d_drop)
-                    break
+                    matched = True
+            if matched:
+                d_drop = self.distance(bot.position, self.state.drop_off) + 1
+                inventory_matches.append(d_drop)
         if not remaining:
             # All items in inventory — check if bots can deliver in time
             if inventory_matches:
