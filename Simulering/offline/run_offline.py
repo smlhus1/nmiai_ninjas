@@ -197,6 +197,99 @@ def _make_hard_scenario() -> Simulator:
     )
 
 
+def _make_expert_scenario() -> Simulator:
+    """Built-in expert: 28x18, 10 bots, 5 aisles, 16 item types, 40 orders."""
+    width, height = 28, 18
+    walls: set[Pos] = set()
+    for x in range(width):
+        walls.add((x, 0)); walls.add((x, height - 1))
+    for y in range(height):
+        walls.add((0, y)); walls.add((width - 1, y))
+
+    types_list = [
+        "milk", "bread", "butter", "yogurt", "cheese", "juice",
+        "eggs", "ham", "coffee", "tea", "cereal", "pasta",
+        "rice", "soup", "fish", "chicken",
+    ]
+
+    # 5 aisles: shelf-walkway-shelf (3 cols each)
+    # Aisle 1: 3,4,5  Aisle 2: 7,8,9  Aisle 3: 11,12,13
+    # Aisle 4: 15,16,17  Aisle 5: 19,20,21
+    # Corridors: y=1 (top), y=8 (mid), y=16 (bottom)
+    # Shelf rows: y=2..7 (upper), y=9..15 (lower)
+    shelf_cols = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
+    shelf_rows_upper = [2, 3, 4, 5, 6, 7]
+    shelf_rows_lower = [9, 10, 11, 12, 13, 14, 15]
+
+    shelf_types: dict[Pos, str] = {}
+    ti = 0
+    for sx in shelf_cols:
+        for sy in shelf_rows_upper + shelf_rows_lower:
+            shelf_types[(sx, sy)] = types_list[ti % len(types_list)]
+            ti += 1
+
+    shelves = set(shelf_types.keys())
+
+    # 10 bots spawning at bottom-right
+    spawns = [
+        (26, 16), (26, 15), (26, 14), (26, 13), (26, 12),
+        (25, 16), (25, 15), (25, 14), (25, 13), (25, 12),
+    ]
+
+    # 40 orders, 4-6 items each
+    orders = [
+        {"id": f"order_{i}", "items_required": items}
+        for i, items in enumerate([
+            ["milk", "bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs", "ham"],
+            ["coffee", "tea", "cereal", "pasta"],
+            ["rice", "soup", "fish", "chicken"],
+            ["milk", "cheese", "eggs", "coffee", "rice"],
+            ["bread", "yogurt", "ham", "tea", "soup"],
+            ["butter", "juice", "cereal", "pasta", "fish"],
+            ["milk", "bread", "butter", "yogurt", "cheese", "juice"],
+            ["eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "rice", "soup"],
+            ["fish", "chicken", "milk", "bread"],
+            ["butter", "yogurt", "cheese", "juice", "eggs"],
+            ["ham", "coffee", "tea", "cereal"],
+            ["pasta", "rice", "soup", "fish", "chicken"],
+            ["milk", "bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "rice", "soup"],
+            ["fish", "chicken", "milk", "bread"],
+            ["butter", "yogurt", "cheese", "juice"],
+            ["eggs", "ham", "coffee", "tea", "cereal", "pasta"],
+            ["rice", "soup", "fish", "chicken"],
+            ["milk", "bread", "butter", "yogurt"],
+            ["cheese", "juice", "eggs", "ham"],
+            ["coffee", "tea", "cereal", "pasta", "rice"],
+            ["soup", "fish", "chicken", "milk"],
+            ["bread", "butter", "yogurt", "cheese", "juice"],
+            ["eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "rice", "soup", "fish"],
+            ["chicken", "milk", "bread", "butter"],
+            ["yogurt", "cheese", "juice", "eggs", "ham"],
+            ["coffee", "tea", "cereal", "pasta"],
+            ["rice", "soup", "fish", "chicken", "milk"],
+            ["bread", "butter", "yogurt", "cheese"],
+            ["juice", "eggs", "ham", "coffee", "tea"],
+            ["cereal", "pasta", "rice", "soup"],
+            ["fish", "chicken", "milk", "bread", "butter"],
+            ["yogurt", "cheese", "juice", "eggs"],
+            ["ham", "coffee", "tea", "cereal", "pasta"],
+            ["rice", "soup", "fish", "chicken"],
+            ["milk", "bread", "butter", "yogurt", "cheese", "juice"],
+        ])
+    ]
+
+    return Simulator(
+        width=width, height=height, walls=walls, shelves=shelves,
+        drop_off=(1, 16), spawn_positions=spawns,
+        order_sequence=orders, item_types_at_shelves=shelf_types,
+    )
+
+
 def run_live_bot(sim: Simulator, *, verbose: bool = True,
                  save_recon: bool = False) -> dict:
     """Run the live bot's full pipeline through the simulator."""
@@ -247,7 +340,7 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--recon", type=str,
                         help="Path to recon JSON file from a live game")
-    source.add_argument("--scenario", choices=["easy", "medium", "hard"],
+    source.add_argument("--scenario", choices=["easy", "medium", "hard", "expert"],
                         help="Built-in test scenario")
 
     parser.add_argument("--compare", action="store_true",
@@ -271,6 +364,8 @@ def main() -> None:
             sim = _make_easy_scenario()
         elif args.scenario == "medium":
             sim = _make_medium_scenario()
+        elif args.scenario == "expert":
+            sim = _make_expert_scenario()
         else:
             sim = _make_hard_scenario()
 
