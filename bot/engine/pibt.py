@@ -46,6 +46,7 @@ class PIBTResolver:
         tiebreak_offset: int = 0,     # round number for tie-breaking variation
         idle_bots: set[int] | None = None,  # bots that should always get lowest priority
         high_priority_bots: set[int] | None = None,  # bots that get priority boost (deliverers)
+        critical_bots: set[int] | None = None,  # order-completing deliverers (absolute highest)
     ) -> dict[int, Pos]:
         """
         Compute collision-free next positions for all bots.
@@ -54,6 +55,7 @@ class PIBTResolver:
         """
         idle_bots = idle_bots or set()
         high_priority_bots = high_priority_bots or set()
+        critical_bots = critical_bots or set()
 
         # Compute priorities: (distance_to_target, bot_id) — lower = higher priority
         priorities: dict[int, tuple[int, int]] = {}
@@ -62,6 +64,8 @@ class PIBTResolver:
             d = self._distance(pos, target)
             if pos == target or bot_id in idle_bots:
                 d = 9999  # IDLE bots get lowest priority so active bots can push them
+            elif bot_id in critical_bots:
+                d = -1  # Order-completing deliverers get absolute highest priority
             elif bot_id in high_priority_bots:
                 d = max(0, d - 5)  # DELIVER bots get priority boost (closer = higher priority)
             # Tiebreak: (bot_id + offset) % 100 so priority rotates by round

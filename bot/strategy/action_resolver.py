@@ -133,6 +133,7 @@ class ActionResolver:
             # Identify IDLE bots (lowest PIBT priority) and DELIVER bots (highest)
             idle_bot_ids: set[int] = set()
             high_priority_ids: set[int] = set()
+            critical_bot_ids: set[int] = set()  # Order-completing deliverers
             for bot_id in movement_bots:
                 assignment = assignments.get(bot_id)
                 if assignment:
@@ -145,11 +146,28 @@ class ActionResolver:
                 if bot_id in commands:
                     idle_bot_ids.add(bot_id)
 
+            # Detect order-completing deliverers: bots whose delivery would
+            # complete the active order (huge +5 bonus). Give them absolute
+            # highest PIBT priority so they punch through congestion.
+            active = state.active_orders
+            if active and len(state.bots) >= 4:
+                remaining = list(active[0].items_remaining)
+                for bot_id in high_priority_ids:
+                    bot = movement_bots[bot_id]
+                    # Check if this bot's matching items cover ALL remaining
+                    check_remaining = list(remaining)
+                    for inv_item in bot.inventory:
+                        if inv_item in check_remaining:
+                            check_remaining.remove(inv_item)
+                    if not check_remaining:
+                        critical_bot_ids.add(bot_id)
+
             next_positions = pibt.resolve(
                 bot_positions, movement_targets,
                 tiebreak_offset=state.round,
                 idle_bots=idle_bot_ids,
                 high_priority_bots=high_priority_ids,
+                critical_bots=critical_bot_ids,
             )
 
             # Step 3: Convert positions to actions (skip bots that already have commands)

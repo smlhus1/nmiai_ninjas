@@ -232,15 +232,22 @@ class WorldModel:
             return True
 
         # Check which bots already have matching items in inventory
-        inventory_matches = []
+        # Also track their delivery cost (must still reach drop-off)
+        inventory_matches: list[int] = []  # delivery costs
         for bot in self.state.bots:
             for inv_item in bot.inventory:
                 if inv_item in remaining:
                     remaining.remove(inv_item)
-                    inventory_matches.append(bot)
+                    d_drop = self.distance(bot.position, self.state.drop_off) + 1
+                    inventory_matches.append(d_drop)
                     break
         if not remaining:
-            return True  # All items already in inventory
+            # All items in inventory — check if bots can deliver in time
+            if inventory_matches:
+                # Sequential delivery (only 1 drop_off per round at drop-off)
+                total_delivery = max(inventory_matches) + len(inventory_matches) - 1
+                return total_delivery <= self.rounds_remaining
+            return True
 
         # For each remaining item type, find best (closest available bot, closest item)
         # and compute the actual trip cost

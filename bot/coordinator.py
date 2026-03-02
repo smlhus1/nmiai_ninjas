@@ -307,27 +307,34 @@ class Coordinator:
                 assignment.navigation_override = None
 
         # Find all bots with DELIVER tasks that have matching items
-        deliverers: list[tuple[int, int]] = []  # (distance, bot_id)
+        deliverers: list[tuple[int, int, int]] = []  # (-match_count, distance, bot_id)
         active = world.state.active_orders
-        remaining_types = set(active[0].items_remaining) if active else set()
+        remaining_types = list(active[0].items_remaining) if active else []
         for bot_id, assignment in self._assignments.items():
             if assignment.task and assignment.task.task_type == TaskType.DELIVER:
                 bot = world.state.get_bot(bot_id)
                 if bot:
-                    has_match = any(inv in remaining_types for inv in bot.inventory)
-                    if has_match or not remaining_types:
+                    # Count how many matching items this bot has
+                    check_remaining = list(remaining_types)
+                    match_count = 0
+                    for inv_item in bot.inventory:
+                        if inv_item in check_remaining:
+                            check_remaining.remove(inv_item)
+                            match_count += 1
+                    if match_count > 0 or not remaining_types:
                         d = world.distance(bot.position, world.state.drop_off)
-                        deliverers.append((d, bot_id))
+                        # Sort by: most matching items first, then closest
+                        deliverers.append((-match_count, d, bot_id))
 
         if len(deliverers) <= max_slots:
             return  # No scheduling needed
 
-        # Sort by distance (closest first) — let closest bots deliver
+        # Sort: most matching items first, then closest distance
         deliverers.sort()
 
         # Bots beyond the limit get redirected to staging via override
         staging = world.staging_positions()
-        for i, (_, bot_id) in enumerate(deliverers):
+        for i, (_, _, bot_id) in enumerate(deliverers):
             if i >= max_slots and staging:
                 bot = world.state.get_bot(bot_id)
                 if bot:
