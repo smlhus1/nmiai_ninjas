@@ -54,9 +54,9 @@ class DecisionsMixin:
                     logger.debug("Bot %d endgame: delivering matching inventory", bot_id)
                     continue
                 elif len(bot.inventory) >= 3:
-                    # Full inventory, nothing matches — idle at current position
-                    assignment.task = Task(task_type=TaskType.IDLE, target_pos=bot.position)
-                    logger.debug("Bot %d endgame: full non-matching, idling at %s", bot_id, bot.position)
+                    # Full inventory, nothing matches — park away from drop-off
+                    assignment.task = self._make_parking_task(bot, world)
+                    logger.debug("Bot %d endgame: full non-matching, parking", bot_id)
                     continue
                 # Has non-matching items but capacity — fall through to pick matching items
 
@@ -132,7 +132,7 @@ class DecisionsMixin:
                     claimed_items.add(best_task.item_id)
                 logger.debug("Bot %d endgame: picking nearest %s", bot_id, best_task.item_type)
             else:
-                assignment.task = Task(task_type=TaskType.IDLE, target_pos=bot.position)
+                assignment.task = self._make_parking_task(bot, world)
 
     def _find_best_task(
         self: TaskPlanner,
@@ -324,7 +324,7 @@ class DecisionsMixin:
                 return False
 
         if world.is_endgame():
-            return True
+            return self._has_matching_items(bot, world)
 
         if not self._has_matching_items(bot, world):
             if self._has_matching_preview_items(bot, world):

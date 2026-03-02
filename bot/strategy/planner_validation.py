@@ -193,8 +193,9 @@ class ValidationMixin:
                 if not bot.inventory:
                     assignment.clear()
                     self._stuck_deliver_rounds.pop(bot_id, None)
-                elif not self._has_matching_items(bot, world) and not world.is_endgame():
+                elif not self._has_matching_items(bot, world):
                     # No items match active order — clear immediately to avoid blocking drop-off
+                    # (applies in endgame too: non-matching items can't be delivered)
                     assignment.clear()
                     self._stuck_deliver_rounds.pop(bot_id, None)
                 elif bot.position == state.drop_off:
