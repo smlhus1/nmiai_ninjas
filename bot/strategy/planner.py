@@ -109,7 +109,10 @@ class TaskPlanner(AssignmentMixin, ValidationMixin, DecisionsMixin):
             return assignments
 
         # Step 3: Rush preview holders when active order is almost done
-        self._rush_preview_holders(world, assignments)
+        # With 4+ bots, auto-delivery (position-independent) handles cascades well
+        # and rushing wastes bot capacity. With fewer bots, rush helps coordination.
+        if len(state.bots) < 4:
+            self._rush_preview_holders(world, assignments)
 
         # Step 4: Assign tasks to unassigned bots
         unassigned = sorted(
