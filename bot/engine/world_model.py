@@ -251,8 +251,12 @@ class WorldModel:
             # All items in inventory — check if bots can deliver in time
             if inventory_matches:
                 # Sequential delivery (only 1 drop_off per round at drop-off)
-                total_delivery = max(inventory_matches) + len(inventory_matches) - 1
-                return total_delivery <= self.rounds_remaining
+                # Simulate: each bot delivers when it arrives, or queues behind
+                inventory_matches.sort()
+                total = inventory_matches[0]
+                for i in range(1, len(inventory_matches)):
+                    total = max(total + 1, inventory_matches[i])
+                return total <= self.rounds_remaining
             return True
 
         # For each remaining item type, find best (closest available bot, closest item)
