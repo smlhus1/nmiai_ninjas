@@ -168,12 +168,14 @@ class ActionResolver:
                     if not check_remaining:
                         critical_bot_ids.add(bot_id)
 
+            deliver_boost = 8 if len(state.bots) >= 8 else 5
             next_positions = pibt.resolve(
                 bot_positions, movement_targets,
                 tiebreak_offset=state.round,
                 idle_bots=idle_bot_ids,
                 high_priority_bots=high_priority_ids,
                 critical_bots=critical_bot_ids,
+                deliver_boost=deliver_boost,
             )
 
             # Step 3: Convert positions to actions (skip bots that already have commands)

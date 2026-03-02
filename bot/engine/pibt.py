@@ -47,6 +47,7 @@ class PIBTResolver:
         idle_bots: set[int] | None = None,  # bots that should always get lowest priority
         high_priority_bots: set[int] | None = None,  # bots that get priority boost (deliverers)
         critical_bots: set[int] | None = None,  # order-completing deliverers (absolute highest)
+        deliver_boost: int = 5,  # priority boost for deliverers
     ) -> dict[int, Pos]:
         """
         Compute collision-free next positions for all bots.
@@ -67,7 +68,7 @@ class PIBTResolver:
             elif bot_id in critical_bots:
                 d = -1  # Order-completing deliverers get absolute highest priority
             elif bot_id in high_priority_bots:
-                d = max(0, d - 5)  # DELIVER bots get priority boost (closer = higher priority)
+                d = max(0, d - deliver_boost)  # DELIVER bots get priority boost
             # Tiebreak: (bot_id + offset) % 100 so priority rotates by round
             priorities[bot_id] = (d, (bot_id + tiebreak_offset) % 100)
 
