@@ -250,7 +250,7 @@ class Coordinator:
         # With 4+ bots, collisions are more frequent and 3-round stuck is normal
         # for PIBT resolution. Use tighter threshold for many bots.
         n_bots = len(state.bots)
-        STUCK_THRESHOLD = 5 if n_bots <= 5 else (4 if n_bots <= 8 else 3)
+        STUCK_THRESHOLD = 5 if n_bots <= 5 else 3
 
         for bot in state.bots:
             prev_pos = self._last_bot_positions.get(bot.id)
@@ -333,18 +333,26 @@ class Coordinator:
         # Sort: most matching items first, then closest distance
         deliverers.sort()
 
-        # Bots beyond the limit get redirected to staging via override
+        # Bots beyond the limit: queue at drop-off adjacent cells for ≤5 bots
+        # (tight pipeline), or staging for many bots (avoid gridlock).
+        n_bots = len(world.state.bots)
+        adjacent = world.dropoff_adjacent_positions() if n_bots <= 5 else []
         staging = world.staging_positions()
+        other_positions = set()
         for i, (_, _, bot_id) in enumerate(deliverers):
-            if i >= max_slots and staging:
+            if i >= max_slots:
                 bot = world.state.get_bot(bot_id)
                 if bot:
-                    best_staging = min(
-                        staging,
-                        key=lambda p: world.distance(bot.position, p),
-                    )
-                    self._assignments[bot_id].navigation_override = best_staging
-                    self._assignments[bot_id].path = None  # Force recompute
+                    free_adj = [p for p in adjacent if p not in other_positions]
+                    if free_adj:
+                        target = min(free_adj, key=lambda p: world.distance(bot.position, p))
+                        other_positions.add(target)
+                    elif staging:
+                        target = min(staging, key=lambda p: world.distance(bot.position, p))
+                    else:
+                        continue
+                    self._assignments[bot_id].navigation_override = target
+                    self._assignments[bot_id].path = None
 
     def _try_load_plan(self) -> None:
         """Check for an existing plan file matching today's fingerprint."""
