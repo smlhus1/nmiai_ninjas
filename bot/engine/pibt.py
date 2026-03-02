@@ -170,44 +170,29 @@ class PIBTResolver:
             if bot_id not in decided:
                 plan(bot_id)
 
-        # Post-process: detect and cancel swaps
-        # (Sequential ID-order resolution means swaps always fail in-game)
-        for bid_a in list(result):
-            if result[bid_a] == bots[bid_a]:
-                continue
-            for bid_b in list(result):
-                if bid_b <= bid_a or result[bid_b] == bots[bid_b]:
-                    continue
-                if result[bid_a] == bots[bid_b] and result[bid_b] == bots[bid_a]:
-                    logger.info("PIBT: cancelled swap between bot %d and %d", bid_a, bid_b)
-                    result[bid_a] = bots[bid_a]
-                    result[bid_b] = bots[bid_b]
-
-        # Post-process: detect and cancel follow-collisions
-        # Game engine processes moves in bot ID order. If a lower-ID bot
-        # moves to a higher-ID bot's current position, the higher-ID bot
-        # hasn't moved yet when the lower-ID bot's move is resolved → collision.
-        # Cancel the lower-ID bot's move; next round the path will be clear.
-        for bid_a in list(result):
-            if result[bid_a] == bots[bid_a]:
+        # Post-process: simulate game engine's sequential ID-order resolution.
+        # The game resolves moves in ascending bot ID order. When a bot's move
+        # is processed, it sees the CURRENT board (already-moved bots at new
+        # positions, not-yet-moved bots at original positions). This handles
+        # swaps, follow-collisions, and cascading collisions correctly.
+        actual = dict(bots)  # All bots start at pre-move positions
+        for bot_id in sorted(result.keys()):
+            planned = result.get(bot_id, bots[bot_id])
+            if planned == actual[bot_id]:
                 continue  # Not moving
-            for bid_b in list(result):
-                if bid_b == bid_a:
-                    continue
-                # Lower-ID bot moving to higher-ID bot's current position
-                # (higher-ID bot is also moving away, so PIBT thinks it's free)
-                if (bid_a < bid_b and result[bid_a] == bots[bid_b]
-                        and result[bid_b] != bots[bid_b]):
-                    logger.debug(
-                        "PIBT: cancelled follow-collision bot %d -> bot %d's pos %s",
-                        bid_a, bid_b, bots[bid_b],
-                    )
-                    result[bid_a] = bots[bid_a]
+            # Check if planned position is occupied by any other bot
+            blocked = False
+            for other_id, other_pos in actual.items():
+                if other_id != bot_id and other_pos == planned:
+                    blocked = True
+                    break
+            if not blocked:
+                actual[bot_id] = planned  # Move succeeds
+            # else: stays at current position (already correct in actual)
 
-        # Ensure all bots have a position
+        # Update result from sequential simulation
         for bot_id in bots:
-            if bot_id not in result:
-                result[bot_id] = bots[bot_id]
+            result[bot_id] = actual.get(bot_id, bots[bot_id])
 
         return result
 

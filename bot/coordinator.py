@@ -313,7 +313,7 @@ class Coordinator:
                 assignment.navigation_override = None
 
         # Find all bots with DELIVER tasks that have matching items
-        deliverers: list[tuple[int, int, int]] = []  # (-match_count, distance, bot_id)
+        deliverers: list[tuple[int, int, int, int]] = []  # (-completes, -match_count, distance, bot_id)
         active = world.state.active_orders
         remaining_types = list(active[0].items_remaining) if active else []
         for bot_id, assignment in self._assignments.items():
@@ -329,8 +329,10 @@ class Coordinator:
                             match_count += 1
                     if match_count > 0 or not remaining_types:
                         d = world.distance(bot.position, world.state.drop_off)
-                        # Sort by: most matching items first, then closest
-                        deliverers.append((-match_count, d, bot_id))
+                        # Completing delivery gets +5 bonus — always prioritize
+                        completes = 1 if (remaining_types and len(check_remaining) == 0) else 0
+                        # Sort by: completes first, then most matching items, then closest
+                        deliverers.append((-completes, -match_count, d, bot_id))
 
         if len(deliverers) <= max_slots:
             return  # No scheduling needed
@@ -344,7 +346,7 @@ class Coordinator:
         adjacent = world.dropoff_adjacent_positions() if n_bots <= 5 else []
         staging = world.staging_positions()
         other_positions = set()
-        for i, (_, _, bot_id) in enumerate(deliverers):
+        for i, (_, _, _, bot_id) in enumerate(deliverers):
             if i >= max_slots:
                 bot = world.state.get_bot(bot_id)
                 if bot:

@@ -167,6 +167,7 @@ def solve_assignment(
             if not all_reachable:
                 continue
 
+            completes_order = False
             if route.order_id is not None:
                 order = next(
                     (o for o in active_orders if o.id == route.order_id), None
@@ -194,11 +195,12 @@ def solve_assignment(
             else:
                 cost_val = float(total_cost)
 
-            # Switching penalty: discourage changing route
+            # Switching penalty: discourage changing route (reduced for order-completing routes)
+            switch_penalty = 1.0 if completes_order else 3.0
             if current_route_ids and not current_route_ids.intersection(route.item_ids):
-                cost_val += 3.0
+                cost_val += switch_penalty
             elif current_item_id and current_item_id not in route.item_ids:
-                cost_val += 3.0
+                cost_val += switch_penalty
 
             cost[i][j] = cost_val + parallel_penalty
 

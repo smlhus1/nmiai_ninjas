@@ -229,7 +229,11 @@ def build_routes(
                         continue
                     d_direct = world.distance(last_pos, drop_off)
                     d_via = world.distance(last_pos, pp) + world.distance(pp, drop_off)
-                    margin = 6 if len(world.state.bots) <= 2 else 4
+                    if len(world.state.bots) <= 2:
+                        margin = 6
+                    else:
+                        # Scale margin with rounds remaining: more generous when plenty of time
+                        margin = min(6, max(3, world.rounds_remaining // 50))
                     if d_via <= d_direct + margin:
                         route.stops.append(RouteStop(
                             item_id=item.id, item_type=item.type,
