@@ -274,4 +274,22 @@ def build_routes(
         ))
 
     routes.sort(key=lambda r: r.total_cost)
+
+    # With few bots, ensure route size diversity so Hungarian can evaluate
+    # order-completion tradeoffs (e.g., 3-stop completing an order vs 2-stop).
+    # With many bots, parallelism matters more — just use cheapest routes.
+    if len(world.state.bots) <= 2:
+        best_by_size: dict[int, Route] = {}
+        for r in routes:
+            n = len(r.stops)
+            if n not in best_by_size or r.total_cost < best_by_size[n].total_cost:
+                best_by_size[n] = r
+
+        result = routes[:MAX_CANDIDATES]
+        result_ids = {frozenset(r.item_ids) for r in result}
+        for r in best_by_size.values():
+            if frozenset(r.item_ids) not in result_ids:
+                result.append(r)
+        return result
+
     return routes[:MAX_CANDIDATES]
