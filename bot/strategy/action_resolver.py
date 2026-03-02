@@ -130,15 +130,17 @@ class ActionResolver:
             pibt = PIBTResolver(state.grid, self._path.distance, self._path.corridors)
             bot_positions = {bid: bot.position for bid, bot in movement_bots.items()}
 
-            # Identify IDLE bots so PIBT gives them lowest priority
-            # (prevents navigation_override from giving artificial high priority)
+            # Identify IDLE bots (lowest PIBT priority) and DELIVER bots (highest)
             idle_bot_ids: set[int] = set()
+            high_priority_ids: set[int] = set()
             for bot_id in movement_bots:
                 assignment = assignments.get(bot_id)
                 if assignment:
                     task = assignment.task
                     if task is None or task.task_type == TaskType.IDLE:
                         idle_bot_ids.add(bot_id)
+                    elif task.task_type == TaskType.DELIVER and len(state.bots) >= 4:
+                        high_priority_ids.add(bot_id)
                 # Stationary bots (pick_up/drop_off added as obstacles) are also idle-priority
                 if bot_id in commands:
                     idle_bot_ids.add(bot_id)
@@ -147,6 +149,7 @@ class ActionResolver:
                 bot_positions, movement_targets,
                 tiebreak_offset=state.round,
                 idle_bots=idle_bot_ids,
+                high_priority_bots=high_priority_ids,
             )
 
             # Step 3: Convert positions to actions (skip bots that already have commands)
