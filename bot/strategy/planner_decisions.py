@@ -432,7 +432,7 @@ class DecisionsMixin:
 
             # Don't detour if picking adds too many rounds vs direct delivery.
             # With many bots, prefer delivering sooner — other bots handle items.
-            detour_limit = 6 if len(world.state.bots) >= 5 else 10
+            detour_limit = 8 if len(world.state.bots) >= 5 else 10
             detour_cost = nearest_pick_dist + 1
             if detour_cost > detour_limit:
                 return True  # Detour too expensive, deliver now
