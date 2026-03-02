@@ -218,7 +218,9 @@ def build_routes(
             _make_route(stops)
 
     # Cross-order pre-picking: if route completes active order, add preview items
-    if preview_order:
+    # Only for single-bot scenarios — with multiple bots, dedicated preview pickers handle this
+    # to avoid over-picking preview items (causes permanent stale inventory)
+    if preview_order and len(world.state.bots) <= 2:
         for route in list(routes):
             if len(route.stops) >= capacity:
                 continue

@@ -84,13 +84,32 @@ class AssignmentMixin:
         claimed_items: set[str],
     ) -> None:
         """Assign idle bots to pre-pick items for preview orders."""
+        from collections import Counter
+
         preview_orders = state.preview_orders
         if not preview_orders:
             return
 
         preview = preview_orders[0]
 
+        # Count preview items already covered (in bot inventories + assigned PRE_PICK tasks)
+        preview_budget = Counter(preview.items_remaining)
+        for bot in state.bots:
+            for inv_item in bot.inventory:
+                if preview_budget[inv_item] > 0:
+                    preview_budget[inv_item] -= 1
+        for a in assignments.values():
+            if a.task and a.task.task_type == TaskType.PRE_PICK and a.task.item_type:
+                if preview_budget[a.task.item_type] > 0:
+                    preview_budget[a.task.item_type] -= 1
+        preview_budget = +preview_budget  # Remove zero/negative
+        if not preview_budget:
+            return  # Preview order fully covered
+
         for bot_id in unassigned:
+            if not preview_budget:
+                break  # No more items to pre-pick
+
             bot = state.get_bot(bot_id)
             if bot is None:
                 continue
@@ -100,11 +119,16 @@ class AssignmentMixin:
                 continue
 
             task = self._find_preview_task(world, bot, preview, claimed_items)
-            if task:
+            if task and task.item_type and preview_budget.get(task.item_type, 0) > 0:
                 assignments[bot_id].task = task
                 assignments[bot_id].path = None
                 if task.item_id:
                     claimed_items.add(task.item_id)
+                preview_budget[task.item_type] -= 1
+                preview_budget = +preview_budget
+            elif task:
+                # Item type already fully covered, skip
+                pass
                 logger.debug("Bot %d assigned preview: %s", bot_id, task)
 
     def _find_preview_task(

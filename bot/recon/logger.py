@@ -102,13 +102,19 @@ class GameLogger:
             ):
                 self._order_activation_rounds[order.id] = state.round
 
-            # Track completion
+            # Track completion (explicit flag)
             if order.complete and order.id not in self._order_completion_rounds:
                 self._order_completion_rounds[order.id] = state.round
 
-        # Track current active order for transition detection
+        # Detect completion via active order transition:
+        # If the active order changed, the previous one was completed
         active = [o for o in state.orders if o.status == OrderStatus.ACTIVE and not o.complete]
-        self._active_order_id = active[0].id if active else None
+        current_active_id = active[0].id if active else None
+        if (self._active_order_id is not None
+                and current_active_id != self._active_order_id
+                and self._active_order_id not in self._order_completion_rounds):
+            self._order_completion_rounds[self._active_order_id] = state.round
+        self._active_order_id = current_active_id
 
     def finalize(self, total_rounds: int, final_score: int) -> dict:
         """Called at game_over. Returns serializable recon data dict."""

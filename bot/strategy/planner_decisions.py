@@ -261,7 +261,26 @@ class DecisionsMixin:
                 item_pos=item.position,
             )
 
-        return Task(task_type=TaskType.IDLE, target_pos=bot.position)
+        # IDLE — park away from drop-off to avoid blocking deliveries
+        return self._make_parking_task(bot, world)
+
+    def _make_parking_task(
+        self: TaskPlanner,
+        bot: Bot,
+        world: WorldModel,
+    ) -> Task:
+        """Create an IDLE task parked away from the drop-off zone."""
+        parking = world.parking_positions()
+        if parking:
+            other_bots = world.bot_positions_except(bot.id)
+            free = [p for p in parking if p not in other_bots]
+            if free:
+                target = min(free, key=lambda p: world.distance(bot.position, p))
+            else:
+                target = min(parking, key=lambda p: world.distance(bot.position, p))
+        else:
+            target = bot.position
+        return Task(task_type=TaskType.IDLE, target_pos=target)
 
     def _has_matching_items(self: TaskPlanner, bot: Bot, world: WorldModel) -> bool:
         """Check if bot has ANY inventory items matching the active order."""
