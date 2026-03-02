@@ -182,23 +182,23 @@ class PIBTResolver:
                     result[bid_a] = bots[bid_a]
                     result[bid_b] = bots[bid_b]
 
-        # Post-process: detect and cancel follow-collisions with IDLE bots
+        # Post-process: detect and cancel follow-collisions
         # Game engine processes moves in bot ID order. If a lower-ID bot
-        # moves to a higher-ID IDLE bot's current position, the IDLE bot
-        # hasn't moved yet when the active bot's move is resolved → collision.
-        # Cancel the active bot's move; next round the path will be clear.
-        # Only applies to IDLE bots — active-active follows resolve naturally.
+        # moves to a higher-ID bot's current position, the higher-ID bot
+        # hasn't moved yet when the lower-ID bot's move is resolved → collision.
+        # Cancel the lower-ID bot's move; next round the path will be clear.
         for bid_a in list(result):
             if result[bid_a] == bots[bid_a]:
                 continue  # Not moving
             for bid_b in list(result):
                 if bid_b == bid_a:
                     continue
-                # Lower-ID bot moving to higher-ID IDLE bot's current position
+                # Lower-ID bot moving to higher-ID bot's current position
+                # (higher-ID bot is also moving away, so PIBT thinks it's free)
                 if (bid_a < bid_b and result[bid_a] == bots[bid_b]
-                        and bid_b in idle_bots and result[bid_b] != bots[bid_b]):
+                        and result[bid_b] != bots[bid_b]):
                     logger.debug(
-                        "PIBT: cancelled follow-collision bot %d -> idle bot %d's pos %s",
+                        "PIBT: cancelled follow-collision bot %d -> bot %d's pos %s",
                         bid_a, bid_b, bots[bid_b],
                     )
                     result[bid_a] = bots[bid_a]
