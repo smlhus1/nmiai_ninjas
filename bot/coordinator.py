@@ -273,6 +273,12 @@ class Coordinator:
                 if (task.task_type in (TaskType.PICK_UP, TaskType.DELIVER)
                         and bot.position == assignment.effective_target):
                     continue
+                # Don't clear if bot is adjacent to item (can pick from current pos)
+                if (task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK)
+                        and task.item_pos
+                        and self._path_engine.manhattan(bot.position, task.item_pos) == 1
+                        and len(bot.inventory) < 3):
+                    continue
                 # If already IDLE, just accept current position as park spot
                 if task.task_type == TaskType.IDLE:
                     from bot.strategy.task import Task

@@ -220,14 +220,62 @@ class WorldModel:
         return self.rounds_remaining <= dynamic_threshold
 
     def can_complete_active_order(self) -> bool:
-        """Estimate whether the active order can be completed in remaining rounds."""
+        """Estimate whether the active order can be completed in remaining rounds.
+
+        Uses actual distances from available bots to items for accuracy.
+        """
         active = self.state.active_orders
         if not active:
             return False
-        remaining = active[0].items_remaining
+        remaining = list(active[0].items_remaining)
         if not remaining:
             return True
-        n_bots = max(len(self.state.bots), 1)
-        rounds_per_item = 6
-        effective_rounds = len(remaining) * rounds_per_item / n_bots
-        return effective_rounds <= self.rounds_remaining
+
+        # Check which bots already have matching items in inventory
+        inventory_matches = []
+        for bot in self.state.bots:
+            for inv_item in bot.inventory:
+                if inv_item in remaining:
+                    remaining.remove(inv_item)
+                    inventory_matches.append(bot)
+                    break
+        if not remaining:
+            return True  # All items already in inventory
+
+        # For each remaining item type, find best (closest available bot, closest item)
+        # and compute the actual trip cost
+        available_bots = [b for b in self.state.bots if len(b.inventory) < 3]
+        if not available_bots:
+            return False
+
+        # Greedy: assign each remaining item to closest available bot
+        trip_costs = []
+        used_bots: set[int] = set()
+        for item_type in remaining:
+            best_cost = 9999
+            for bot in available_bots:
+                if bot.id in used_bots:
+                    continue
+                for item in self.items_of_type(item_type):
+                    pp = self.best_pickup_position(bot.position, item.position)
+                    if pp is None:
+                        continue
+                    d_pick = self.distance(bot.position, pp)
+                    d_drop = self.distance(pp, self.state.drop_off)
+                    cost = d_pick + d_drop + 2  # pick + drop actions
+                    if cost < best_cost:
+                        best_cost = cost
+                        best_bot_id = bot.id
+            if best_cost < 9999:
+                trip_costs.append(best_cost)
+                used_bots.add(best_bot_id)
+            else:
+                return False  # Can't reach this item type
+
+        # Parallel execution: the bottleneck is the longest trip
+        if not trip_costs:
+            return False
+        parallel_time = max(trip_costs)
+        # Add margin for delivery queueing at drop-off
+        parallel_time += max(0, len(trip_costs) - 1)
+        return parallel_time <= self.rounds_remaining
