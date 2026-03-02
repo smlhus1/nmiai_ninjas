@@ -64,7 +64,7 @@ Coordinator (bot/coordinator.py) — owns persistent state, orchestrates pipelin
 - Items are INFINITE — they respawn at the same shelf positions with new IDs. Item count stays constant.
 - Shelf positions are NOT in the server's `walls` list but ARE non-walkable. Coordinator adds them.
 - Collisions resolve in bot ID order (low ID wins).
-- Auto-delivery: when active order completes, preview becomes active and matching inventory items auto-deliver.
+- Auto-delivery is LOCAL: when a bot at drop-off completes the active order, preview becomes active and ONLY THAT BOT's matching inventory auto-delivers. Other bots keep their items — they must go to drop-off themselves.
 - 300 rounds max, 2s response time, 10s cooldown between games, 120s wall-clock limit per game.
 - Score: +1 per item delivered, +5 per completed order.
 

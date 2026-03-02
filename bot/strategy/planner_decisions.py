@@ -249,7 +249,11 @@ class DecisionsMixin:
         if covered_types:
             wanted_types -= covered_types
 
-        for item in state.items:
+        # Use canonically sorted items (by position, then ID) instead of
+        # server-ordered state.items, for deterministic behavior.
+        sorted_items = sorted(state.items,
+                              key=lambda i: (i.position[0], i.position[1], i.id))
+        for item in sorted_items:
             if item.type not in wanted_types:
                 continue
             if item.id in claimed_items:

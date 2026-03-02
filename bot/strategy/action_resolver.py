@@ -31,10 +31,16 @@ def _resolve_camp_item(
     shelf_pos: Pos,
     item_type: str | None,
 ) -> str | None:
-    """Find an actual item at a shelf position for camp-style picks."""
-    for item in state.items:
-        if item.position == shelf_pos and (item_type is None or item.type == item_type):
-            return item.id
+    """Find an actual item at a shelf position for camp-style picks.
+    Sort candidates for deterministic behavior regardless of item list order."""
+    candidates = [
+        item for item in state.items
+        if item.position == shelf_pos and (item_type is None or item.type == item_type)
+    ]
+    if candidates:
+        # Sort by ID for deterministic selection
+        candidates.sort(key=lambda i: i.id)
+        return candidates[0].id
     return None
 
 

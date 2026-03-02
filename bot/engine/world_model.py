@@ -46,9 +46,13 @@ class WorldModel:
         self.state = state
         self.path = path_engine
 
-        # Index items by type for fast lookup
+        # Index items by type for fast lookup.
+        # Sort by position to ensure deterministic ordering regardless of
+        # server item order. Without this, tie-breaking in route selection
+        # depends on item list order, causing divergence between simulator
+        # and live server (observed 44-105 score range from ordering alone).
         self._items_by_type: dict[str, list[Item]] = {}
-        for item in state.items:
+        for item in sorted(state.items, key=lambda i: (i.position[0], i.position[1], i.id)):
             self._items_by_type.setdefault(item.type, []).append(item)
 
         # Bot positions set (for obstacle awareness)
