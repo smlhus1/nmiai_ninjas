@@ -292,4 +292,6 @@ def build_routes(
                 result.append(r)
         return result
 
-    return routes[:MAX_CANDIDATES]
+    # More candidates for 3-bot scenarios (more routes to evaluate in Hungarian)
+    n_cands = MAX_CANDIDATES + 4 if len(world.state.bots) == 3 else MAX_CANDIDATES
+    return routes[:n_cands]
