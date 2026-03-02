@@ -115,7 +115,16 @@ class AssignmentMixin:
                 continue
 
             # Leave slots open for active order — stricter with more bots
-            max_inv_for_preview = 3 if len(state.bots) <= 3 else 2
+            # With 5 bots: only pre-pick if empty (prevents stranded inventory)
+            n_bots = len(state.bots)
+            if n_bots <= 3:
+                max_inv_for_preview = 3
+            elif n_bots == 4:
+                max_inv_for_preview = 2
+            elif n_bots <= 6:
+                max_inv_for_preview = 1
+            else:
+                max_inv_for_preview = 2
             if len(bot.inventory) >= max_inv_for_preview:
                 continue
 
