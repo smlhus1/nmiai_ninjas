@@ -101,9 +101,9 @@ class TaskPlanner(AssignmentMixin, ValidationMixin, DecisionsMixin):
                 claimed_items.add(a.task.item_id)
 
         # Endgame check: if active order can't be completed, switch strategy
-        # With 5+ bots, normal planner + Hungarian handles endgame better
+        # With 4+ bots, normal planner + Hungarian handles endgame better
         if (world.is_endgame() and not world.can_complete_active_order()
-                and len(state.bots) < 5):
+                and len(state.bots) < 4):
             self._plan_endgame(world, assignments, claimed_items)
             # Save inventory snapshots (normally done at end of plan())
             for bot in state.bots:
