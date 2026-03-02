@@ -441,11 +441,18 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     if not remaining_copy:
         return True  # All remaining items in inventory — deliver for +5!
 
+    # With many bots (10+): deliver with 2+ matching items to keep pipeline flowing.
+    # Other bots handle remaining items in parallel.
+    has_match = any(inv in remaining for inv in bot.inventory)
+    if has_match and len(bot.inventory) >= 2 and len(world.state.bots) >= 8:
+        match_count = sum(1 for inv in bot.inventory if inv in remaining)
+        if match_count >= 2:
+            return True
+
     # Has matching items but order not complete — let Hungarian decide
     # (it may find a multi-item route that picks more before delivering)
 
     # No active-order match: check preview for auto-delivery
-    has_match = any(inv in remaining for inv in bot.inventory)
     if not has_match:
         preview = world.state.preview_orders
         if preview:
