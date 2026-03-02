@@ -114,8 +114,9 @@ class AssignmentMixin:
             if bot is None:
                 continue
 
-            # Don't pre-pick if inventory is full (leave 1 slot open)
-            if len(bot.inventory) >= 2:
+            # Leave slots open for active order — stricter with more bots
+            max_inv_for_preview = 3 if len(state.bots) <= 3 else 2
+            if len(bot.inventory) >= max_inv_for_preview:
                 continue
 
             task = self._find_preview_task(world, bot, preview, claimed_items)
