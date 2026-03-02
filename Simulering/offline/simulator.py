@@ -345,7 +345,8 @@ class Simulator:
     def _advance_orders(self, bot: SimBot):
         """
         After order completion: preview→active, next hidden→preview.
-        Auto-deliver matching inventory items to new active order.
+        Auto-deliver matching inventory items from the TRIGGERING bot only.
+        (Server only auto-delivers for the bot at drop-off, not all bots.)
         """
         # Find preview → make active
         preview = None
@@ -357,19 +358,18 @@ class Simulator:
         if preview:
             preview.status = "active"
 
-            # Auto-delivery: check ALL bots' inventory against new active
-            for b in self._bots:
-                remaining = list(preview.items_remaining)
-                new_inventory = []
-                for item_type in b.inventory:
-                    if item_type in remaining:
-                        remaining.remove(item_type)
-                        preview.items_delivered.append(item_type)
-                        self._score += 1
-                        self._items_delivered += 1
-                    else:
-                        new_inventory.append(item_type)
-                b.inventory = new_inventory
+            # Auto-delivery: only the triggering bot (at drop-off) gets re-checked
+            remaining = list(preview.items_remaining)
+            new_inventory = []
+            for item_type in bot.inventory:
+                if item_type in remaining:
+                    remaining.remove(item_type)
+                    preview.items_delivered.append(item_type)
+                    self._score += 1
+                    self._items_delivered += 1
+                else:
+                    new_inventory.append(item_type)
+            bot.inventory = new_inventory
 
             # Check if auto-delivery completed the new order too
             if preview.complete:
