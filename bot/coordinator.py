@@ -249,7 +249,8 @@ class Coordinator:
         """Detect bots that haven't moved for many rounds and reassign them."""
         # With 4+ bots, collisions are more frequent and 3-round stuck is normal
         # for PIBT resolution. Use tighter threshold for many bots.
-        STUCK_THRESHOLD = 3 if len(state.bots) >= 4 else 5
+        n_bots = len(state.bots)
+        STUCK_THRESHOLD = 5 if n_bots <= 5 else (4 if n_bots <= 8 else 3)
 
         for bot in state.bots:
             prev_pos = self._last_bot_positions.get(bot.id)
