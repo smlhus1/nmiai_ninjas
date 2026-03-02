@@ -181,9 +181,7 @@ class TaskPlanner(AssignmentMixin, ValidationMixin, DecisionsMixin):
     def _item_picked_up(self, bot_id: int, item_type: str, bot_inventory: tuple) -> bool:
         """Check if bot's inventory gained an item of the expected type since last round."""
         prev_inv = self._prev_inventory.get(bot_id, ())
-        prev_count = Counter(prev_inv).get(item_type, 0)
-        curr_count = Counter(bot_inventory).get(item_type, 0)
-        return curr_count > prev_count
+        return bot_inventory.count(item_type) > prev_inv.count(item_type)
 
     def _advance_routes(
         self,

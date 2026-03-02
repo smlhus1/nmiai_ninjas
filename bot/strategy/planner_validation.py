@@ -128,9 +128,10 @@ class ValidationMixin:
                             target_pos=bot.position,
                         )
                     else:
+                        # Nothing matches — don't waste a round moving to drop-off
                         assignment.task = Task(
-                            task_type=TaskType.DELIVER,
-                            target_pos=state.drop_off,
+                            task_type=TaskType.IDLE,
+                            target_pos=bot.position,
                         )
                     assignment.route = None
                     assignment.route_step = 0
@@ -149,7 +150,7 @@ class ValidationMixin:
                                         bot_id, task.item_id, stuck)
                             # Blacklist this item so it won't be reassigned immediately
                             if task.item_id:
-                                self._blacklisted_items[task.item_id] = state.round + 8
+                                self._blacklisted_items[task.item_id] = state.round + 5
                             assignment.clear()
                             self._stuck_pick_rounds.pop(bot_id, None)
                             continue

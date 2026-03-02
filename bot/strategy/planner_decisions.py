@@ -97,33 +97,34 @@ class DecisionsMixin:
             if state.active_orders:
                 active_types = set(state.active_orders[0].items_remaining)
 
-            for item in state.items:
-                if item.id in claimed_items:
-                    continue
+            if not active_types:
+                # No active order types to pick
+                pass
+            else:
+                for item_type in active_types:
+                    for item in world.items_of_type(item_type):
+                        if item.id in claimed_items:
+                            continue
 
-                # In endgame, skip non-matching items (can't deliver them)
-                if active_types and item.type not in active_types:
-                    continue
+                        pickup_pos = world.best_pickup_position(bot.position, item.position)
+                        if pickup_pos is None:
+                            continue
 
-                pickup_pos = world.best_pickup_position(bot.position, item.position)
-                if pickup_pos is None:
-                    continue
+                        d_pick = world.distance(bot.position, pickup_pos)
+                        d_drop = world.distance(pickup_pos, state.drop_off)
+                        # Must be able to pick + deliver in remaining rounds
+                        if d_pick + d_drop + 2 > world.rounds_remaining:
+                            continue
 
-                d_pick = world.distance(bot.position, pickup_pos)
-                d_drop = world.distance(pickup_pos, state.drop_off)
-                # Must be able to pick + deliver in remaining rounds
-                if d_pick + d_drop + 2 > world.rounds_remaining:
-                    continue
-
-                if d_pick < best_dist:
-                    best_dist = d_pick
-                    best_task = Task(
-                        task_type=TaskType.PICK_UP,
-                        target_pos=pickup_pos,
-                        item_id=item.id,
-                        item_type=item.type,
-                        item_pos=item.position,
-                    )
+                        if d_pick < best_dist:
+                            best_dist = d_pick
+                            best_task = Task(
+                                task_type=TaskType.PICK_UP,
+                                target_pos=pickup_pos,
+                                item_id=item.id,
+                                item_type=item.type,
+                                item_pos=item.position,
+                            )
 
             if best_task:
                 assignment.task = best_task
@@ -426,8 +427,7 @@ class DecisionsMixin:
                 return True  # Not enough time, deliver now
 
             # Don't detour if picking adds too many rounds vs direct delivery
-            d_direct_drop = world.distance(bot.position, world.state.drop_off)
-            detour_cost = nearest_pick_dist + 1 + d_to_drop - d_direct_drop
+            detour_cost = nearest_pick_dist + 1
             if detour_cost > 10:
                 return True  # Detour too expensive, deliver now
 
