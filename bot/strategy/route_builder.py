@@ -244,7 +244,8 @@ def build_routes(
                         continue
                     d_direct = world.distance(last_pos, drop_off)
                     d_via = world.distance(last_pos, pp) + world.distance(pp, drop_off)
-                    if d_via <= d_direct + 4:
+                    margin = 6 if len(world.state.bots) <= 2 else 4
+                    if d_via <= d_direct + margin:
                         route.stops.append(RouteStop(
                             item_id=item.id, item_type=item.type,
                             item_pos=item.position, pickup_pos=pp,
@@ -292,6 +293,6 @@ def build_routes(
                 result.append(r)
         return result
 
-    # More candidates for 3-bot scenarios (more routes to evaluate in Hungarian)
+    # More candidates for small multi-bot scenarios
     n_cands = MAX_CANDIDATES + 4 if len(world.state.bots) == 3 else MAX_CANDIDATES
     return routes[:n_cands]
