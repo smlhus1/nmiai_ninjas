@@ -65,6 +65,8 @@ class Coordinator:
         self._position_history: dict[int, list[Pos]] = {}  # bot_id -> last N positions
         # Time-space planner (lazy init for multi-bot)
         self._time_space_planner: Any = None
+        # Guidance graph (lazy init when guidance_enabled)
+        self._guidance_graph: Any = None
         # Visualization broadcaster (optional, started via start_viz())
         self._viz: Any = None
 
@@ -141,6 +143,23 @@ class Coordinator:
         else:
             self._path_engine.set_grid(state.grid, drop_off=state.drop_off)
         self._path_engine.new_round()
+
+        # 5.4. Guidance graph — congestion-aware routing for PIBT
+        if self._config and getattr(self._config, 'guidance_enabled', False):
+            if self._guidance_graph is None:
+                from bot.engine.guidance import GuidanceGraph
+                self._guidance_graph = GuidanceGraph(
+                    self._path_engine._grid,
+                    one_way=self._path_engine._one_way,
+                    alpha=getattr(self._config, 'guidance_alpha', 2.0),
+                    beta=getattr(self._config, 'guidance_beta', 3.0),
+                    decay=getattr(self._config, 'guidance_decay', 0.7),
+                    update_interval=getattr(self._config, 'guidance_update_interval', 5),
+                )
+                self._resolver._guidance = self._guidance_graph
+            # Update traffic data
+            bot_positions = {b.id: b.position for b in state.bots}
+            self._guidance_graph.on_round(bot_positions, state.round)
 
         # 5.5. Viz metadata (first round)
         if self._viz and state.round == 0:

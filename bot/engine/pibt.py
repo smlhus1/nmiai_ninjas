@@ -35,11 +35,13 @@ class PIBTResolver:
         distance_fn: Callable[[Pos, Pos], int],
         corridors: frozenset[Pos] | None = None,
         one_way: dict[Pos, tuple[int, int]] | None = None,
+        guidance_fn: Callable[[Pos, Pos], float] | None = None,
     ) -> None:
         self._grid = grid
         self._distance = distance_fn
         self._corridors = corridors or frozenset()
         self._one_way = one_way or {}
+        self._guidance_fn = guidance_fn
 
     def resolve(
         self,
@@ -96,13 +98,15 @@ class PIBTResolver:
             target = targets.get(bot_id, current)
 
             # Generate candidates sorted by distance to target
-            # Corridor penalty as tiebreak only — never prevents movement
+            # Guidance fn adds congestion-weighted tiebreak
             neighbors = self._get_neighbors(current)
             corridor_set = self._corridors
+            guidance = self._guidance_fn
             candidates = sorted(
                 neighbors + [current],
                 key=lambda p: (
                     self._distance(p, target),
+                    guidance(p, target) if guidance else 0,
                     p != current,
                     1 if p in corridor_set else 0,
                 ),

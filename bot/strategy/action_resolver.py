@@ -46,6 +46,7 @@ class ActionResolver:
 
     def __init__(self, path_engine: PathEngine) -> None:
         self._path = path_engine
+        self._guidance = None  # GuidanceGraph, set by coordinator
 
     def resolve(
         self,
@@ -146,9 +147,13 @@ class ActionResolver:
 
         # Step 2: Run PIBT for all moving bots
         if movement_bots:
+            guidance_fn = None
+            if self._guidance:
+                guidance_fn = self._guidance.guided_distance
             pibt = PIBTResolver(
                 self._path._grid, self._path.distance, self._path.corridors,
                 one_way=self._path._one_way,
+                guidance_fn=guidance_fn,
             )
             bot_positions = {bid: bot.position for bid, bot in movement_bots.items()}
 

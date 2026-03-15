@@ -75,6 +75,18 @@ class CoordinatorConfig:
     tsp_horizon: int = 30          # Planning horizon (timesteps ahead)
     tsp_max_planning_ms: int = 500  # Time budget for path planning
 
+    # --- Guidance graph (congestion-aware routing) ---
+    guidance_enabled: bool = False
+    guidance_alpha: float = 2.0
+    guidance_beta: float = 3.0
+    guidance_decay: float = 0.7
+    guidance_update_interval: int = 5
+
+    # --- LNS refinement ---
+    lns_enabled: bool = False
+    lns_budget_ms: int = 500
+    lns_neighborhood_size: int = 5
+
     # --- Exploration noise ---
     # Adds controlled randomness to distance calcs, making each config
     # produce different routing decisions. 0 = deterministic (default).
@@ -122,7 +134,10 @@ class CoordinatorConfig:
         return cls(
             replay_enabled=False,
             endgame_threshold=60,
-            pre_pick_max_inventory=3,  # Maximize items per trip
+            pre_pick_max_inventory=3,
+            guidance_enabled=True,
+            guidance_update_interval=3,
+            guidance_alpha=1.0,
         )
 
     @classmethod
@@ -176,6 +191,17 @@ class CoordinatorConfig:
             p.gate_max_delay = max(0, min(10, p.gate_max_delay + random.choice([-2, -1, 0, 1, 2, 3])))
         if r() < 0.15 * temperature:
             p.gate_min_rounds_remaining = max(20, min(80, p.gate_min_rounds_remaining + random.choice([-10, -5, 5, 10])))
+        # Guidance params
+        if r() < 0.3 * temperature:
+            p.guidance_enabled = random.choice([True, False])
+        if r() < 0.3 * temperature:
+            p.guidance_alpha = random.choice([0.5, 1.0, 1.5, 2.0, 3.0, 4.0])
+        if r() < 0.3 * temperature:
+            p.guidance_beta = random.choice([1.0, 2.0, 3.0, 5.0, 8.0])
+        if r() < 0.3 * temperature:
+            p.guidance_update_interval = random.choice([2, 3, 5, 8, 10])
+        if r() < 0.2 * temperature:
+            p.guidance_decay = random.choice([0.5, 0.6, 0.7, 0.8, 0.9])
 
         return p
 
