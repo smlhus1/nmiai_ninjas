@@ -1524,14 +1524,13 @@ class V2TaskPlanner:
             zone_x_range = self.NIGHTMARE_ZONES[zone_id]
 
         best_task = None
-        best_score = (9999, 9999, 9999)
+        best_score = (9999, 9999)
 
         for item in state.items:
             if item.id in claimed_items:
                 continue
             if item.type not in target_types:
                 continue
-            # Budget check — don't over-pick a type
             if type_budget.get(item.type, 0) <= 0:
                 continue
 
@@ -1542,16 +1541,14 @@ class V2TaskPlanner:
             if d >= 9999:
                 continue
 
-            # Soft zone penalty: out-of-zone items get +10 distance
             zone_penalty = 0
             if zone_x_range:
                 ix = item.position[0]
                 if ix < zone_x_range[0] or ix > zone_x_range[1]:
                     zone_penalty = 10
 
-            # Demand bonus: high-demand items get up to 3 cells virtual distance reduction
             demand_bonus = min(demand.get(item.type, 0), 3) if demand else 0
-            score = (d + zone_penalty - demand_bonus, d)  # effective dist, real dist
+            score = (d + zone_penalty - demand_bonus, d)
             if score < best_score:
                 best_score = score
                 best_task = Task(
@@ -1568,7 +1565,6 @@ class V2TaskPlanner:
             claimed_items.add(best_task.item_id)
             filling_types.append(best_task.item_type)
         else:
-            # No target items available — diverse fill as fallback
             all_inv = []
             for b in state.bots:
                 all_inv.extend(b.inventory)
