@@ -49,6 +49,7 @@ class SmartStrategy:
         self.bot_item_type: dict[int, str | None] = {}
         self.claimed_types: Counter = Counter()
         self.active_order_id: str | None = None
+        self.bot_prev_pos: dict[int, list[Pos]] = {}  # last 6 positions for oscillation
 
     def __call__(self, state: dict) -> dict:
         bots = state.get("bots", [])
@@ -157,19 +158,18 @@ class SmartStrategy:
                             assigned = True
                             break
 
-        # Generate actions — process in ID order (matching sim's collision model)
-        actions = []
-        # Track where bots have moved TO (claimed cells this round)
-        claimed: set[Pos] = set()
+        # Separate immediate actions (pickup/dropoff) from movement
+        immediate_actions: dict[int, dict] = {}
+        movement_bots: dict[int, Pos] = {}  # bid -> current pos
+        movement_targets: dict[int, Pos] = {}  # bid -> target pos
 
-        for bot in sorted(bots, key=lambda b: b["id"]):
+        for bot in bots:
             bid = bot["id"]
             pos = tuple(bot["position"])
-            inv = bot.get("inventory", [])
             goal = self.bot_goals.get(bid, "idle")
             target = self.bot_targets.get(bid)
 
-            # Pickup action
+            # Pickup
             if goal == "pickup" and target == pos:
                 item_type = self.bot_item_type.get(bid)
                 item_id = None
@@ -180,40 +180,123 @@ class SmartStrategy:
                             item_id = item["id"]
                             break
                 if item_id:
-                    actions.append({"bot": bid, "action": "pick_up", "item_id": item_id})
+                    immediate_actions[bid] = {"bot": bid, "action": "pick_up", "item_id": item_id}
                     self.bot_goals[bid] = "idle"
                     self.bot_targets[bid] = None
                     self.bot_item_type[bid] = None
-                    claimed.add(pos)
                     continue
                 else:
                     self.bot_goals[bid] = "idle"
                     self.bot_targets[bid] = None
 
-            # Dropoff action
+            # Dropoff
             if goal == "deliver" and pos in self.drop_off_zones:
-                actions.append({"bot": bid, "action": "drop_off"})
+                immediate_actions[bid] = {"bot": bid, "action": "drop_off"}
                 self.bot_goals[bid] = "idle"
                 self.bot_targets[bid] = None
-                claimed.add(pos)
                 continue
 
-            # Movement toward target
+            # Needs movement
             if target and target != pos:
-                best_move = self._best_step(pos, target, occupied, claimed)
-                if best_move:
-                    dx = best_move[0] - pos[0]
-                    dy = best_move[1] - pos[1]
+                movement_bots[bid] = pos
+                movement_targets[bid] = target
+            else:
+                movement_bots[bid] = pos
+                # Idle bots on drop-off must ESCAPE so deliverers can use it
+                if pos in self.drop_off_zones:
+                    # Move away from drop-off (up or right)
+                    escape = (pos[0], pos[1] - 1)
+                    if not self._walkable(escape):
+                        escape = (pos[0] + 1, pos[1])
+                    movement_targets[bid] = escape
+                else:
+                    movement_targets[bid] = pos  # stay put
+
+        # Use PIBTResolver for collision-free movement
+        from bot.engine.pibt import PIBTResolver
+        from bot.models import Grid as BotGrid
+
+        if not hasattr(self, '_pibt_grid'):
+            self._pibt_grid = BotGrid(self.w, self.h, frozenset(self.obstacles))
+            from bot.engine.pathfinding import PathEngine
+            self._path_engine = PathEngine()
+            self._path_engine.set_grid(self._pibt_grid, drop_off=self.drop_off_zones[0])
+            # Force one-way aisles (critical for 20-bot nightmare)
+            one_way = self._path_engine._detect_one_way_aisles(
+                self._pibt_grid, self.drop_off_zones[0])
+            self._path_engine._one_way = one_way
+            self._path_engine._one_way_enabled = True
+
+        pibt = PIBTResolver(
+            self._pibt_grid,
+            self._path_engine.distance,
+            self._path_engine.corridors,
+            one_way=self._path_engine._one_way,
+        )
+
+        # Track oscillation: if bot has been in same 2-3 positions for 6+ rounds, unstick
+        for bot in bots:
+            bid = bot["id"]
+            pos = tuple(bot["position"])
+            if bid not in self.bot_prev_pos:
+                self.bot_prev_pos[bid] = []
+            self.bot_prev_pos[bid].append(pos)
+            if len(self.bot_prev_pos[bid]) > 8:
+                self.bot_prev_pos[bid] = self.bot_prev_pos[bid][-8:]
+            # Check oscillation: <= 3 unique positions in last 8 rounds
+            if len(self.bot_prev_pos[bid]) >= 8:
+                unique = len(set(self.bot_prev_pos[bid]))
+                if unique <= 3 and bid in movement_targets:
+                    # Bot is stuck — add random offset to target
+                    import random
+                    t = movement_targets[bid]
+                    if t != pos:
+                        # Try a perpendicular direction
+                        dx = t[0] - pos[0]
+                        dy = t[1] - pos[1]
+                        # Go perpendicular
+                        if abs(dx) > abs(dy):
+                            movement_targets[bid] = (pos[0], pos[1] + random.choice([-2, 2]))
+                        else:
+                            movement_targets[bid] = (pos[0] + random.choice([-2, 2]), pos[1])
+
+        # PIBT urgency: deliverers > pickups > idle
+        urgency = {}
+        for bid in movement_bots:
+            g = self.bot_goals.get(bid, "idle")
+            if g == "deliver":
+                urgency[bid] = 0
+            elif g == "pickup":
+                urgency[bid] = 1
+            else:
+                urgency[bid] = 3
+
+        resolved = pibt.resolve(
+            movement_bots, movement_targets,
+            tiebreak_offset=round_num,
+            urgency=urgency,
+        )
+
+        # Build final actions
+        actions = []
+        for bot in bots:
+            bid = bot["id"]
+            pos = tuple(bot["position"])
+
+            if bid in immediate_actions:
+                actions.append(immediate_actions[bid])
+            elif bid in resolved:
+                new_pos = resolved[bid]
+                if new_pos == pos:
+                    actions.append({"bot": bid, "action": "wait"})
+                else:
+                    dx = new_pos[0] - pos[0]
+                    dy = new_pos[1] - pos[1]
                     act = {(1,0): "move_right", (-1,0): "move_left",
                            (0,1): "move_down", (0,-1): "move_up"}.get((dx,dy), "wait")
                     actions.append({"bot": bid, "action": act})
-                    # Update occupied: this bot LEAVES old pos, ENTERS new pos
-                    occupied.discard(pos)
-                    occupied.add(best_move)
-                    claimed.add(best_move)
-                    continue
-
-            actions.append({"bot": bid, "action": "wait"})
+            else:
+                actions.append({"bot": bid, "action": "wait"})
 
         return {"actions": actions}
 
