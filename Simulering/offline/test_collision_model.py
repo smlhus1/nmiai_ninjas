@@ -517,7 +517,11 @@ class TestAutoDelivery:
         assert state.score == 12, f"Expected 12, got {state.score}"
 
     def test_auto_delivery_other_bot(self):
-        """Auto-delivery fires for ALL bots, not just the one at drop-off."""
+        """Auto-delivery only fires for the delivering bot, NOT all bots.
+
+        Live server behavior: other bots keep their inventory until they
+        manually drop_off on the new active order.
+        """
         sim = _make_sim(
             shelves={(3, 1), (3, 3)},
             shelf_types={(3, 1): "milk", (3, 3): "bread"},
@@ -541,7 +545,8 @@ class TestAutoDelivery:
         assert sim._bots[0].inventory == ["milk"]
         assert sim._bots[1].inventory == ["bread"]
 
-        # Bot 0 delivers milk → o0 complete → o1 active → bot 1's bread auto-delivers!
+        # Bot 0 delivers milk → o0 complete → o1 active
+        # Bot 1's bread is NOT auto-delivered (only delivering bot gets auto-delivery)
         sim._bots[0].position = sim.drop_off
         state, _ = sim.step([
             {"bot": 0, "action": "drop_off"},
@@ -549,9 +554,9 @@ class TestAutoDelivery:
         ])
 
         assert state.bots[0].inventory == []
-        assert state.bots[1].inventory == [], "Bot 1's bread auto-delivered"
-        # milk(+1) + o0_complete(+5) + bread_auto(+1) + o1_complete(+5) = 12
-        assert state.score == 12
+        assert state.bots[1].inventory == ["bread"], "Bot 1 keeps bread until manual drop_off"
+        # milk(+1) + o0_complete(+5) = 6
+        assert state.score == 6
 
 
 # =====================================================================

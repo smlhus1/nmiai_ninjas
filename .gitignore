@@ -14,3 +14,9 @@ __pycache__/
 
 # Claude Code
 .claude/
+node_modules/
+viz/
+__pycache__/
+*.pyc
+*.log
+*.bak

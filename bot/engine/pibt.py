@@ -34,10 +34,12 @@ class PIBTResolver:
         grid: Grid,
         distance_fn: Callable[[Pos, Pos], int],
         corridors: frozenset[Pos] | None = None,
+        one_way: dict[Pos, tuple[int, int]] | None = None,
     ) -> None:
         self._grid = grid
         self._distance = distance_fn
         self._corridors = corridors or frozenset()
+        self._one_way = one_way or {}
 
     def resolve(
         self,
@@ -45,6 +47,7 @@ class PIBTResolver:
         targets: dict[int, Pos],      # bot_id -> target position
         tiebreak_offset: int = 0,     # round number for tie-breaking variation
         idle_bots: set[int] | None = None,  # bots that should always get lowest priority
+        urgency: dict[int, int] | None = None,  # bot_id -> urgency tier (0=highest, 1=mid, 2=low)
     ) -> dict[int, Pos]:
         """
         Compute collision-free next positions for all bots.
@@ -52,16 +55,19 @@ class PIBTResolver:
         Returns dict[bot_id, next_position].
         """
         idle_bots = idle_bots or set()
+        urgency = urgency or {}
 
-        # Compute priorities: (distance_to_target, bot_id) — lower = higher priority
-        priorities: dict[int, tuple[int, int]] = {}
+        # Compute priorities: (urgency_tier, distance_to_target, tiebreak) — lower = higher priority
+        priorities: dict[int, tuple[int, int, int]] = {}
         for bot_id, pos in bots.items():
             target = targets.get(bot_id, pos)
             d = self._distance(pos, target)
+            tier = urgency.get(bot_id, 1)  # Default: mid priority
             if pos == target or bot_id in idle_bots:
                 d = 9999  # IDLE bots get lowest priority so active bots can push them
+                tier = 3
             # Tiebreak: (bot_id + offset) % 100 so priority rotates by round
-            priorities[bot_id] = (d, (bot_id + tiebreak_offset) % 100)
+            priorities[bot_id] = (tier, d, (bot_id + tiebreak_offset) % 100)
 
         # Sort by priority: closest to target first, then lowest ID
         sorted_ids = sorted(priorities.keys(), key=lambda bid: priorities[bid])
@@ -108,10 +114,12 @@ class PIBTResolver:
                     if occupant == bot_id:
                         # Own position — defer staying if we should try alternatives:
                         # 1. Active bot at depth 0: explore all neighbors before giving up
-                        # 2. IDLE bot being pushed: try to vacate for the pusher
+                        # 2. Pushed bot (depth > 0): yield unless AT target.
+                        #    Prevents deadlocks where a higher-priority bot
+                        #    can't push through because pushed bots refuse to move.
                         should_defer = (
                             (depth == 0 and current != target) or
-                            (depth > 0 and priorities[bot_id][0] >= 9999)
+                            (depth > 0 and (priorities[bot_id][0] >= 9999 or current != target))
                         )
                         if should_defer:
                             continue  # Try other candidates first
@@ -174,26 +182,38 @@ class PIBTResolver:
                     result[bid_a] = bots[bid_a]
                     result[bid_b] = bots[bid_b]
 
-        # Post-process: detect and cancel follow-collisions with IDLE bots
-        # Game engine processes moves in bot ID order. If a lower-ID bot
-        # moves to a higher-ID IDLE bot's current position, the IDLE bot
-        # hasn't moved yet when the active bot's move is resolved → collision.
-        # Cancel the active bot's move; next round the path will be clear.
-        # Only applies to IDLE bots — active-active follows resolve naturally.
-        for bid_a in list(result):
-            if result[bid_a] == bots[bid_a]:
-                continue  # Not moving
-            for bid_b in list(result):
-                if bid_b == bid_a:
-                    continue
-                # Lower-ID bot moving to higher-ID IDLE bot's current position
-                if (bid_a < bid_b and result[bid_a] == bots[bid_b]
-                        and bid_b in idle_bots and result[bid_b] != bots[bid_b]):
-                    logger.debug(
-                        "PIBT: cancelled follow-collision bot %d -> idle bot %d's pos %s",
-                        bid_a, bid_b, bots[bid_b],
-                    )
-                    result[bid_a] = bots[bid_a]
+        # Post-process: simulate game engine's sequential ID-order resolution.
+        # Iterate until no more cancellations needed (handles cascades).
+        for _iteration in range(len(bots) + 1):
+            cancelled = False
+            for bid_a in sorted(result.keys()):
+                if result[bid_a] == bots[bid_a]:
+                    continue  # Not moving
+                target_pos = result[bid_a]
+                # Check: is target_pos occupied by a bot that will still be
+                # there when bid_a's move resolves?
+                for bid_b in result:
+                    if bid_b == bid_a:
+                        continue
+                    if bots[bid_b] != target_pos:
+                        continue  # bid_b wasn't at target_pos
+                    # bid_b is/was at target_pos. Will bid_b still be there?
+                    # Case 1: bid_b is not moving (stays) → collision
+                    # Case 2: bid_b has higher ID and is moving away →
+                    #          game processes bid_a first, bid_b hasn't moved → collision
+                    bid_b_stays = (result[bid_b] == bots[bid_b])
+                    bid_b_higher_and_moving = (bid_b > bid_a and result[bid_b] != bots[bid_b])
+                    if bid_b_stays or bid_b_higher_and_moving:
+                        logger.debug(
+                            "PIBT: cancel collision B%d -> %s (B%d %s)",
+                            bid_a, target_pos, bid_b,
+                            "stays" if bid_b_stays else "higher-ID moving",
+                        )
+                        result[bid_a] = bots[bid_a]
+                        cancelled = True
+                        break
+            if not cancelled:
+                break
 
         # Ensure all bots have a position
         for bot_id in bots:
@@ -203,12 +223,20 @@ class PIBTResolver:
         return result
 
     def _get_neighbors(self, pos: Pos) -> list[Pos]:
-        """Get walkable neighbors of a position."""
+        """Get walkable neighbors respecting one-way rules."""
         x, y = pos
+        rule = self._one_way.get(pos)
         neighbors = []
         for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
             nx, ny = x + dx, y + dy
-            candidate = (nx, ny)
-            if self._grid.is_walkable(candidate):
-                neighbors.append(candidate)
+            if not self._grid.is_walkable((nx, ny)):
+                continue
+            if rule:
+                # Vertical one-way: blocks wrong vertical direction
+                if rule[1] != 0 and dx == 0 and dy != 0 and dy != rule[1]:
+                    continue
+                # Horizontal one-way: blocks wrong horizontal direction
+                if rule[0] != 0 and dy == 0 and dx != 0 and dx != rule[0]:
+                    continue
+            neighbors.append((nx, ny))
         return neighbors

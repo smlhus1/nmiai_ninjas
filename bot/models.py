@@ -144,10 +144,18 @@ class GameState:
     items: tuple[Item, ...]
     orders: tuple[Order, ...]
     drop_off: Pos
+    drop_off_zones: tuple[Pos, ...]  # All drop-off positions (Nightmare has 3)
     score: int
 
     @classmethod
     def from_dict(cls, data: dict) -> GameState:
+        primary_drop_off = tuple(data["drop_off"])
+        # Parse all drop-off zones; fall back to single primary
+        raw_zones = data.get("drop_off_zones", [])
+        if raw_zones:
+            zones = tuple(tuple(z) for z in raw_zones)
+        else:
+            zones = (primary_drop_off,)
         return cls(
             round=data["round"],
             max_rounds=data["max_rounds"],
@@ -155,7 +163,8 @@ class GameState:
             bots=tuple(Bot.from_dict(b) for b in data["bots"]),
             items=tuple(Item.from_dict(i) for i in data["items"]),
             orders=tuple(Order.from_dict(o) for o in data["orders"]),
-            drop_off=tuple(data["drop_off"]),
+            drop_off=primary_drop_off,
+            drop_off_zones=zones,
             score=data.get("score", 0),
         )
 

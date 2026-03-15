@@ -68,6 +68,7 @@ class Route:
     stops: list[RouteStop] = field(default_factory=list)
     order_id: Optional[str] = None
     total_cost: float = 0.0  # Estimated total distance for full route + delivery
+    preview_stop_indices: set[int] = field(default_factory=set)  # Which stops are preview items
 
     @property
     def item_ids(self) -> set[str]:

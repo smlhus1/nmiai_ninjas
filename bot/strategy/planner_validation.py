@@ -1,0 +1,297 @@
+"""ValidationMixin: task invalidation and stale-task cleanup for TaskPlanner."""
+
+from __future__ import annotations
+
+import logging
+from collections import Counter
+from typing import TYPE_CHECKING, Optional
+
+from bot.models import GameState, Bot
+from bot.engine.world_model import WorldModel
+from bot.strategy.task import Task, TaskType, BotAssignment
+
+if TYPE_CHECKING:
+    from bot.strategy.planner import TaskPlanner
+
+logger = logging.getLogger(__name__)
+
+
+class ValidationMixin:
+    """Validation methods extracted from TaskPlanner."""
+
+    def _invalidate_stale(
+        self: TaskPlanner,
+        world: WorldModel,
+        assignments: dict[int, BotAssignment],
+        skip_time_check: bool = False,
+    ) -> None:
+        """Remove tasks that are no longer valid."""
+        state = world.state
+        current_item_ids = {item.id for item in state.items}
+        # Active order IDs for PRE_PICK invalidation on order transition
+        active_order_ids = {o.id for o in state.active_orders}
+        # Build claimed_items so build_routes (in pick-up reassignment) does not double-claim
+        claimed_items: set[str] = set(self._blacklisted_items.keys())
+        for a in assignments.values():
+            if a.route:
+                for stop in a.route.stops[a.route_step:]:
+                    claimed_items.add(stop.item_id)
+            elif a.task and a.task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK) and a.task.item_id:
+                claimed_items.add(a.task.item_id)
+
+        for bot_id, assignment in assignments.items():
+            task = assignment.task
+            if task is None:
+                continue
+
+            bot = state.get_bot(bot_id)
+            if bot is None:
+                assignment.clear()
+                continue
+
+            if assignment.route:
+                remaining_stops = assignment.route.stops[assignment.route_step:]
+                # Re-resolve stale item IDs: items respawn at same shelf with
+                # new IDs. Find the current item at the same position+type.
+                for stop in remaining_stops:
+                    if stop.item_id not in current_item_ids and not stop.item_id.startswith("camp_"):
+                        for item in state.items:
+                            if item.position == stop.item_pos and item.type == stop.item_type:
+                                logger.debug("ROUTE-REFRESH B%d: %s @ %s: %s -> %s",
+                                             bot_id, stop.item_type, stop.item_pos,
+                                             stop.item_id, item.id)
+                                stop.item_id = item.id
+                                break
+                remaining_stops = [
+                    s for s in remaining_stops
+                    if s.item_id in current_item_ids or s.item_id.startswith("camp_")
+                ]
+                if not remaining_stops:
+                    # All remaining route items gone -> clear route, let delivery or reassignment happen
+                    if bot.inventory:
+                        assignment.task = Task(
+                            task_type=TaskType.DELIVER,
+                            target_pos=state.drop_off,
+                        )
+                        assignment.route = None
+                        assignment.route_step = 0
+                        assignment.path = None
+                    else:
+                        assignment.clear()
+                    continue
+                else:
+                    # Rebuild route with surviving stops
+                    original_count = len(assignment.route.stops) - assignment.route_step
+                    if len(remaining_stops) < original_count:
+                        assignment.route.stops = (
+                            assignment.route.stops[:assignment.route_step] + remaining_stops
+                        )
+                    # Sync task item_id with current stop (may have been re-resolved)
+                    current_stop = assignment.current_route_stop
+                    if current_stop and task.item_id != current_stop.item_id:
+                        assignment.task = Task(
+                            task_type=TaskType.PICK_UP,
+                            target_pos=current_stop.pickup_pos,
+                            item_id=current_stop.item_id,
+                            item_type=current_stop.item_type,
+                            item_pos=current_stop.item_pos,
+                            order_id=assignment.route.order_id,
+                        )
+                        assignment.path = None
+
+            if task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK):
+                # Detect successful pick via inventory change (handles infinite shelves)
+                if not assignment.route and task.item_type:
+                    if self._item_picked_up(bot_id, task.item_type, bot.inventory):
+                        self._stuck_pick_rounds.pop(bot_id, None)
+
+                        # Multi-item batching: try route for remaining items, else single next pickup
+                        next_task = None
+                        route_assigned = False
+                        if (
+                            len(state.bots) >= 2
+                            and len(bot.inventory) < 3
+                            and not world.is_endgame()
+                            and state.active_orders
+                        ):
+                            from bot.strategy.route_builder import build_routes
+                            active_order = state.active_orders[0]
+                            routes = build_routes(bot, world, active_order, claimed_items)
+                            for route in routes:
+                                if len(route.stops) > 1 and route.total_cost <= world.rounds_remaining:
+                                    first_stop = route.stops[0]
+                                    assignment.task = Task(
+                                        task_type=TaskType.PICK_UP,
+                                        target_pos=first_stop.pickup_pos,
+                                        item_id=first_stop.item_id,
+                                        item_type=first_stop.item_type,
+                                        item_pos=first_stop.item_pos,
+                                        order_id=route.order_id,
+                                    )
+                                    assignment.route = route
+                                    assignment.route_step = 0
+                                    assignment.path = None
+                                    for stop in route.stops:
+                                        claimed_items.add(stop.item_id)
+                                    logger.debug(
+                                        "Bot %d: picked %s, assigned multi-item route (%d stops)",
+                                        bot_id, task.item_type, len(route.stops),
+                                    )
+                                    route_assigned = True
+                                    break
+                            if not route_assigned:
+                                next_task = self._find_next_pickup(
+                                    bot, world, assignments, bot_id
+                                )
+
+                        if not route_assigned and next_task:
+                            threshold = (
+                                getattr(self._config, "deliver_detour_threshold", 10)
+                                if getattr(self, "_config", None) else 10
+                            )
+                            d_next = world.distance(bot.position, next_task.target_pos)
+                            d_next_drop = world.distance(next_task.target_pos, state.drop_off)
+                            d_drop_now = world.distance(bot.position, state.drop_off)
+                            if (d_next + d_next_drop - d_drop_now) > threshold:
+                                next_task = None
+                        if not route_assigned and next_task:
+                            logger.debug(
+                                "Bot %d: picked %s, reassigned to %s",
+                                bot_id, task.item_type, next_task.item_type,
+                            )
+                            assignment.task = next_task
+                            assignment.path = None
+                            if next_task.item_id:
+                                claimed_items.add(next_task.item_id)
+                        elif not route_assigned:
+                            logger.debug(
+                                "Bot %d: picked %s (inventory change), clearing task",
+                                bot_id, task.item_type,
+                            )
+                            assignment.clear()
+                        continue
+
+                # Full inventory — can't pick up
+                if len(bot.inventory) >= 3:
+                    self._stuck_pick_rounds.pop(bot_id, None)
+                    if self._has_matching_items(bot, world) or world.is_endgame():
+                        logger.debug("Bot %d: full inventory, delivering matching items", bot_id)
+                        assignment.task = Task(
+                            task_type=TaskType.DELIVER,
+                            target_pos=state.drop_off,
+                        )
+                    elif self._has_matching_preview_items(bot, world):
+                        logger.debug("Bot %d: full inventory, preview match — staging near drop-off", bot_id)
+                        staging = self._nearest_dropoff_adjacent(bot, world)
+                        assignment.task = Task(
+                            task_type=TaskType.IDLE,
+                            target_pos=staging or bot.position,
+                        )
+                    else:
+                        logger.debug("Bot %d: full inventory, no order match — parking away from drop-off", bot_id)
+                        assignment.task = Task(
+                            task_type=TaskType.IDLE,
+                            target_pos=self._idle_position(bot, world),
+                        )
+                    assignment.route = None
+                    assignment.route_step = 0
+                    assignment.path = None
+                    continue
+
+                # Stuck picking: bot at pickup position but inventory unchanged
+                prev_inv = self._prev_inventory.get(bot_id, ())
+                if bot.inventory == prev_inv and task.target_pos:
+                    d_to_target = world.distance(bot.position, task.target_pos)
+                    if d_to_target <= 1:  # At or adjacent to target
+                        stuck = self._stuck_pick_rounds.get(bot_id, 0) + 1
+                        self._stuck_pick_rounds[bot_id] = stuck
+                        if stuck >= 5:
+                            logger.info("Bot %d: stuck picking %s for %d rounds, blacklisting",
+                                        bot_id, task.item_id, stuck)
+                            # Blacklist this item so it won't be reassigned immediately
+                            if task.item_id:
+                                self._blacklisted_items[task.item_id] = state.round + 8
+                            assignment.clear()
+                            self._stuck_pick_rounds.pop(bot_id, None)
+                            continue
+                    else:
+                        self._stuck_pick_rounds.pop(bot_id, None)
+                else:
+                    self._stuck_pick_rounds.pop(bot_id, None)
+
+            if task.task_type == TaskType.PICK_UP:
+                if (task.item_id
+                        and task.item_id not in current_item_ids
+                        and not task.item_id.startswith("camp_")):
+                    logger.debug("Bot %d: item %s gone, clearing task", bot_id, task.item_id)
+                    assignment.clear()
+
+                # Can't complete trip in remaining rounds
+                # skip_time_check: replay planner has pre-computed routes,
+                # can_complete_trip has BFS asymmetry with shelf positions
+                elif not skip_time_check and task.item_pos and not world.can_complete_trip(bot, task.item_pos):
+                    logger.debug("Bot %d: not enough rounds for trip, clearing", bot_id)
+                    assignment.clear()
+
+                # Item type no longer needed by active order — clear unless useful for preview
+                if (assignment.task
+                        and task.order_id and task.item_type
+                        and state.active_orders
+                        and task.order_id == state.active_orders[0].id):
+                    remaining_types = Counter(state.active_orders[0].items_remaining)
+                    if remaining_types.get(task.item_type, 0) <= 0:
+                        # Keep if type is needed by preview order (auto-delivery potential)
+                        keep_for_preview = False
+                        if state.preview_orders:
+                            preview_types = Counter(state.preview_orders[0].items_remaining)
+                            if preview_types.get(task.item_type, 0) > 0:
+                                # Single-bot: only keep if won't fill inventory
+                                # (full inv with preview-only items = stuck waiting)
+                                if len(state.bots) == 1:
+                                    keep_for_preview = len(bot.inventory) + 1 < 3
+                                else:
+                                    keep_for_preview = True
+                        if not keep_for_preview:
+                            logger.info("Bot %d: type %s fully delivered, clearing stale PICK_UP",
+                                        bot_id, task.item_type)
+                            assignment.clear()
+
+            elif task.task_type == TaskType.PRE_PICK:
+                # Item gone
+                if task.item_id and task.item_id not in current_item_ids:
+                    assignment.clear()
+                # Preview order became active (order transition happened)
+                elif task.order_id and task.order_id in active_order_ids:
+                    assignment.clear()
+
+            elif task.task_type == TaskType.DELIVER:
+                # Nothing to deliver
+                if not bot.inventory:
+                    assignment.clear()
+                    self._stuck_deliver_rounds.pop(bot_id, None)
+                # No matching active-order items — delivering would be useless
+                elif not self._has_matching_items(bot, world) and not world.is_endgame():
+                    logger.debug("Bot %d: DELIVER but no matching active items, clearing", bot_id)
+                    assignment.clear()
+                    self._stuck_deliver_rounds.pop(bot_id, None)
+                # Stuck detection: at drop-off but inventory unchanged
+                elif bot.position == state.drop_off:
+                    prev_inv = self._prev_inventory.get(bot_id)
+                    if prev_inv == bot.inventory:
+                        if not self._has_matching_items(bot, world):
+                            logger.debug("Bot %d: at drop-off with non-matching items, clearing DELIVER", bot_id)
+                            assignment.clear()
+                            self._stuck_deliver_rounds.pop(bot_id, None)
+                        else:
+                            rounds_stuck = self._stuck_deliver_rounds.get(bot_id, 0) + 1
+                            self._stuck_deliver_rounds[bot_id] = rounds_stuck
+                            if rounds_stuck >= 2:
+                                logger.debug("Bot %d: stuck at drop-off for %d rounds, clearing DELIVER",
+                                             bot_id, rounds_stuck)
+                                assignment.clear()
+                                self._stuck_deliver_rounds.pop(bot_id, None)
+                    else:
+                        self._stuck_deliver_rounds.pop(bot_id, None)
+                # Only keep delivering if something matches
+                elif not self._has_matching_items(bot, world):
+                    assignment.clear()

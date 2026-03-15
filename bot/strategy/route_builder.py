@@ -57,9 +57,11 @@ def build_routes(
     if not type_budget:
         return []
 
-    drop_off = world.state.drop_off
+    drop_off = world.nearest_drop_off(bot.position, bot.id)
     available: list[tuple[Item, Pos]] = []
     EXTRA_ALTERNATIVES = 2
+
+    bot_zone = world.bot_zone(bot.id)
 
     for item_type, count_needed in type_budget.items():
         type_items: list[tuple[Item, Pos, float]] = []
@@ -70,7 +72,9 @@ def build_routes(
             if pickup_pos is None:
                 continue
             d = world.distance(bot.position, pickup_pos)
-            type_items.append((item, pickup_pos, d))
+            # Zone penalty: items outside bot's zone cost more (discourages cross-zone trips)
+            zone_penalty = 0 if (not bot_zone or world.item_in_zone(item.position, bot_zone)) else 20
+            type_items.append((item, pickup_pos, d + zone_penalty))
 
         type_items.sort(key=lambda x: x[2] + world.distance(x[1], drop_off) * 0.5)
         for item, pickup_pos, _ in type_items[:count_needed + EXTRA_ALTERNATIVES]:
@@ -94,7 +98,8 @@ def build_routes(
                       {t: len(world.items_of_type(t)) for t in type_budget})
         return []
 
-    capacity = MAX_ROUTE_ITEMS - len(bot.inventory)
+    max_items = getattr(world, 'max_route_items', MAX_ROUTE_ITEMS)
+    capacity = min(MAX_ROUTE_ITEMS, max_items) - len(bot.inventory)
     if capacity <= 0:
         return []
 

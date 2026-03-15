@@ -70,6 +70,7 @@ def _make_world(raw: dict, shelf_positions: frozenset[Pos] | None = None) -> Wor
             items=state.items,
             orders=state.orders,
             drop_off=state.drop_off,
+            drop_off_zones=state.drop_off_zones,
             score=state.score,
         )
     engine = PathEngine()
@@ -426,8 +427,9 @@ class TestReplayPlanner:
     def test_replay_divergence_switch(self):
         """After MAX_DIVERGENCE consecutive divergences, should switch to reactive."""
         plan = self._make_plan()
-        # Set an order_id that won't match the game state
+        # Set items_required to something that won't match the game state
         plan["order_plans"][0]["order_id"] = "nonexistent_order"
+        plan["order_plans"][0]["items_required"] = ["cheese", "pasta"]
         reactive = TaskPlanner()
         replay = ReplayPlanner(plan, reactive)
 

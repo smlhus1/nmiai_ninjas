@@ -27,6 +27,7 @@ class GameLogger:
         self._grid_size: tuple[int, int] = (0, 0)
         self._walls: list[list[int]] = []
         self._drop_off: list[int] = []
+        self._drop_off_zones: list[list[int]] = []
         self._shelf_map: dict[str, list[list[int]]] = {}  # type -> [[x, y], ...]
         self._bot_count: int = 0
         self._bot_start_positions: list[list[int]] = []
@@ -58,6 +59,7 @@ class GameLogger:
         original_walls = state.grid.walls - shelf_positions
         self._walls = sorted([list(w) for w in original_walls])
         self._drop_off = list(state.drop_off)
+        self._drop_off_zones = [list(z) for z in state.drop_off_zones]
         self._bot_count = len(state.bots)
         self._bot_start_positions = [list(bot.position) for bot in state.bots]
 
@@ -123,6 +125,7 @@ class GameLogger:
             "grid_size": list(self._grid_size),
             "walls": self._walls,
             "drop_off": self._drop_off,
+            "drop_off_zones": self._drop_off_zones,
             "shelf_map": self._shelf_map,
             "bot_count": self._bot_count,
             "bot_start_positions": self._bot_start_positions,

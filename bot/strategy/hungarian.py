@@ -46,11 +46,36 @@ def solve_assignment(
     for bot in bots:
         if bot.inventory and _should_deliver_quick(bot, world):
             result[bot.id] = (
-                Task(task_type=TaskType.DELIVER, target_pos=state.drop_off),
+                Task(task_type=TaskType.DELIVER, target_pos=world.nearest_drop_off(bot.position, bot.id)),
                 None,
             )
         else:
             picking_bots.append(bot)
+
+    # Pipeline balance: if all bots delivering, push least-urgent back to picking
+    if not picking_bots and len(result) >= 2 and not world.is_endgame():
+        active = state.active_orders
+        if active:
+            order = active[0]
+            candidates = []
+            for bot_id in list(result.keys()):
+                bot = next((b for b in bots if b.id == bot_id), None)
+                if bot is None:
+                    continue
+                remaining_copy = list(order.items_remaining)
+                matching = 0
+                for inv in bot.inventory:
+                    if inv in remaining_copy:
+                        matching += 1
+                        remaining_copy.remove(inv)
+                if not remaining_copy:
+                    continue  # Don't push back order-completers
+                candidates.append((matching, len(bot.inventory), bot_id, bot))
+            if candidates:
+                candidates.sort()
+                _, _, push_back_id, push_back_bot = candidates[0]
+                del result[push_back_id]
+                picking_bots.append(push_back_bot)
 
     if not picking_bots:
         return result
@@ -128,8 +153,8 @@ def solve_assignment(
                 inter_dist += world.distance(prev_pos, stop.pickup_pos)
                 prev_pos = stop.pickup_pos
 
-            # Distance from last stop to drop-off
-            d_delivery = world.distance(prev_pos, state.drop_off)
+            # Distance from last stop to nearest drop-off zone
+            d_delivery = world.distance(prev_pos, world.nearest_drop_off(prev_pos, bot.id))
 
             # Total: travel + actions (1 per pick + 1 drop)
             real_cost = d_first + inter_dist + d_delivery + len(route.stops) + 1
@@ -140,6 +165,15 @@ def solve_assignment(
             # Weighted cost for assignment: penalize far drop-off
             delivery_weight = 1.5
             total_cost = d_first + inter_dist + (d_delivery * delivery_weight) + len(route.stops) + 1
+
+            # Zone penalty: items outside bot's zone are much more expensive
+            bot_zone = world.bot_zone(bot.id)
+            if bot_zone:
+                out_of_zone = sum(
+                    1 for stop in route.stops
+                    if not world.item_in_zone(stop.item_pos, bot_zone)
+                )
+                total_cost += out_of_zone * 20
 
             # Check all items are reachable from this bot
             all_reachable = all(
@@ -176,6 +210,17 @@ def solve_assignment(
             else:
                 cost_val = float(total_cost)
 
+            # Congestion: penalize routes where first stop is near another bot's target
+            if len(bots) >= 3:
+                for other_i, other_bot in enumerate(picking_bots):
+                    if other_i == i:
+                        continue
+                    other_a = assignments.get(other_bot.id)
+                    if other_a and other_a.task and other_a.task.target_pos:
+                        d_overlap = world.distance(first_stop.pickup_pos, other_a.task.target_pos)
+                        if d_overlap <= 2:
+                            cost_val += 1.0  # Mild penalty for proximity
+
             # Switching penalty: discourage changing route
             switch_pen = 1.5 if len(bots) >= 2 else 3.0
             if current_route_ids and not current_route_ids.intersection(route.item_ids):
@@ -203,6 +248,7 @@ def solve_assignment(
     assigned_pairs.sort()
 
     globally_claimed: set[str] = set()
+
     for _, i, j in assigned_pairs:
         bot = picking_bots[i]
         route = all_routes[j]
@@ -275,7 +321,7 @@ def _assign_non_order_items(
             if pickup_pos is None:
                 continue
             d_pick = world.distance(bot.position, pickup_pos)
-            d_drop = world.distance(pickup_pos, state.drop_off)
+            d_drop = world.distance(pickup_pos, world.nearest_drop_off(pickup_pos, bot.id))
             if d_pick + d_drop + 2 > world.rounds_remaining:
                 continue
             cost[i][j] = float(d_pick + d_drop + 2)
@@ -325,7 +371,7 @@ def _estimate_leftover_cost(
     don't fit in the current route. Used to penalize routes that leave
     expensive items behind.
     """
-    drop_off = world.state.drop_off
+    drop_off = world.nearest_drop_off(bot.position, bot.id)
     route_item_ids = current_route.item_ids
 
     leftover_pickups: list[tuple[float, "Pos"]] = []
@@ -365,6 +411,13 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     """
     if not bot.inventory:
         return False
+    if world.is_endgame():
+        # Only deliver if we have items matching the active order
+        active = world.state.active_orders
+        if active:
+            remaining = list(active[0].items_remaining)
+            return any(inv in remaining for inv in bot.inventory)
+        return True  # No active order — deliver anything
 
     active = world.state.active_orders
     if not active:
@@ -372,21 +425,23 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
 
     order = active[0]
     remaining = list(order.items_remaining)
-    has_match = any(inv in remaining for inv in bot.inventory)
-
-    if world.is_endgame():
-        return has_match
 
     if len(bot.inventory) >= 3:
-        if has_match:
+        # Full — but only deliver if we have matching active items.
+        # Non-matching items stay in inventory, so delivering is pointless
+        # and causes the bot to block corridors in deliver-clear loops.
+        has_active_match = any(inv in remaining for inv in bot.inventory)
+        if has_active_match:
             return True
+        # Check preview for auto-delivery potential
         preview = world.state.preview_orders
         if preview:
             preview_types = set(preview[0].items_remaining)
             if any(inv in preview_types for inv in bot.inventory):
-                return False
-        return False
+                return False  # Wait for auto-delivery on order transition
+        return False  # Don't deliver — nothing will actually be delivered
 
+    # Check if bot's inventory completes the order
     remaining_copy = list(remaining)
     for inv_item in bot.inventory:
         if inv_item in remaining_copy:
@@ -394,6 +449,11 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
     if not remaining_copy:
         return True  # All remaining items in inventory — deliver for +5!
 
+    # Has matching items but order not complete — let Hungarian decide
+    # (it may find a multi-item route that picks more before delivering)
+
+    # No active-order match: check preview for auto-delivery
+    has_match = any(inv in remaining for inv in bot.inventory)
     if not has_match:
         preview = world.state.preview_orders
         if preview:
@@ -401,4 +461,4 @@ def _should_deliver_quick(bot: Bot, world: WorldModel) -> bool:
             if any(inv in preview_types for inv in bot.inventory):
                 return False  # Wait for auto-delivery
 
-    return False
+    return False  # Don't force — let Hungarian handle it

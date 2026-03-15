@@ -84,6 +84,7 @@ class BotAdapter:
 
         self._coordinator: Optional[Coordinator] = None
         self._original_log_levels: dict[str, int] = {}
+        self._start_viz: bool = False
 
     def __call__(self, state_dict: dict[str, Any]) -> dict[str, Any]:
         """Strategy interface for Simulator.run()."""
@@ -91,6 +92,8 @@ class BotAdapter:
             self._coordinator = self._make_coordinator()
             if self._suppress_logs:
                 self._quiet_bot_loggers()
+            if self._start_viz:
+                self._coordinator.start_viz()
 
         return self._coordinator.on_game_state(state_dict)
 
@@ -128,8 +131,17 @@ class BotAdapter:
             self._restore_bot_loggers()
 
     def _make_coordinator(self) -> Coordinator:
-        coord = Coordinator()
+        coord = Coordinator(config=self._config)
         coord._logs_dir = self._logs_dir
+        if self._force_plan is not None:
+            from bot.recon.replay import ReplayPlanner
+            from bot.strategy.planner import TaskPlanner
+            from bot.config import CoordinatorConfig
+            coord._planner = ReplayPlanner(self._force_plan, TaskPlanner())
+            coord._replay_attempted = True
+            if coord._config is None:
+                n_bots = self._force_plan.get("bot_count", 1)
+                coord._config = CoordinatorConfig.for_difficulty(n_bots)
         return coord
 
     def _quiet_bot_loggers(self) -> None:

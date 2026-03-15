@@ -1,15 +1,17 @@
 """
 Offline test runner: run the live bot through the Simulator.
 
-Three workflows:
-  1. From recon file:  Replay a captured game with the full live bot pipeline
-  2. From test scenario: Use built-in Easy/Medium scenarios for quick iteration
-  3. Side-by-side:     Compare live bot vs ParameterizedStrategy on same scenario
+Workflows:
+  1. Latest recon:     Auto-find newest recon file for a difficulty (RECOMMENDED)
+  2. From recon file:  Replay a specific captured game
+  3. From test scenario: Built-in scenarios (smoke test only, NOT representative)
+  4. Side-by-side:     Compare live bot vs ParameterizedStrategy
 
 Usage (from project root):
+    py -m Simulering.offline.run_offline --latest easy
+    py -m Simulering.offline.run_offline --latest medium --compare
     py -m Simulering.offline.run_offline --recon logs/abc12345_2026-03-01_recon.json
-    py -m Simulering.offline.run_offline --scenario easy
-    py -m Simulering.offline.run_offline --scenario medium --compare
+    py -m Simulering.offline.run_offline --scenario easy  # smoke test only
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ if str(_ROOT) not in sys.path:
 from Simulering.offline.simulator import Simulator
 from Simulering.offline.bot_adapter import BotAdapter
 from Simulering.offline.strategy import StrategyParams, ParameterizedStrategy
+from Simulering.offline.recon_utils import find_latest_recon
 
 Pos = tuple[int, int]
 
@@ -115,19 +118,33 @@ def _make_medium_scenario() -> Simulator:
 
 
 def run_live_bot(sim: Simulator, *, verbose: bool = True,
-                 save_recon: bool = False) -> dict:
+                 save_recon: bool = False, viz: bool = False) -> dict:
     """Run the live bot's full pipeline through the simulator."""
     adapter = BotAdapter(save_recon=save_recon, suppress_logs=not verbose)
+    if viz:
+        adapter._start_viz = True
 
     t0 = time.perf_counter()
     result = sim.run(adapter, verbose=verbose)
     elapsed = time.perf_counter() - t0
 
     recon = adapter.finalize(result)
-    adapter.reset()
 
     result["elapsed_s"] = elapsed
     result["recon_data"] = recon
+
+    if viz and adapter._coordinator and adapter._coordinator._viz:
+        viz_obj = adapter._coordinator._viz
+        replay_path = Path(__file__).resolve().parent.parent.parent / "viz" / "public" / "replay.json"
+        replay_path.parent.mkdir(parents=True, exist_ok=True)
+        import json
+        with open(replay_path, "w") as f:
+            json.dump({"type": "replay", "states": viz_obj._all_states}, f)
+        print(f"\n  Replay saved: {replay_path}")
+        print(f"  States: {len(viz_obj._all_states)}")
+        print(f"  Open http://localhost:3000 to view replay\n")
+
+    adapter.reset()
     return result
 
 
@@ -165,7 +182,9 @@ def main() -> None:
     source.add_argument("--recon", type=str,
                         help="Path to recon JSON file from a live game")
     source.add_argument("--scenario", choices=["easy", "medium"],
-                        help="Built-in test scenario")
+                        help="Built-in test scenario (smoke test only, not representative)")
+    source.add_argument("--latest", choices=["easy", "medium", "hard", "expert", "nightmare"],
+                        help="Auto-find latest recon file for difficulty (recommended)")
 
     parser.add_argument("--compare", action="store_true",
                         help="Also run ParameterizedStrategy for comparison")
@@ -173,6 +192,8 @@ def main() -> None:
                         help="Save recon data from the live bot run")
     parser.add_argument("--quiet", action="store_true",
                         help="Suppress per-round logging")
+    parser.add_argument("--viz", action="store_true",
+                        help="Start visualization server on ws://localhost:8765")
     args = parser.parse_args()
 
     if args.recon:
@@ -182,7 +203,17 @@ def main() -> None:
             sys.exit(1)
         print(f"Loading simulator from recon: {path}")
         sim = Simulator.from_recon_file(str(path))
+    elif args.latest:
+        path = find_latest_recon(args.latest)
+        if path is None:
+            print(f"Error: no recon file found for '{args.latest}'. "
+                  f"Run a live game first to generate recon data.")
+            sys.exit(1)
+        print(f"Loading latest {args.latest} recon: {path.name}")
+        sim = Simulator.from_recon_file(str(path))
     else:
+        print(f"WARNING: Built-in scenarios are NOT representative of live games!")
+        print(f"         Use --latest {args.scenario} for realistic testing.")
         print(f"Using built-in scenario: {args.scenario}")
         sim = _make_easy_scenario() if args.scenario == "easy" else _make_medium_scenario()
 
@@ -197,6 +228,7 @@ def main() -> None:
         sim,
         verbose=not args.quiet,
         save_recon=args.save_recon,
+        viz=args.viz,
     )
     print()
     print_result("Live Bot", live_result)

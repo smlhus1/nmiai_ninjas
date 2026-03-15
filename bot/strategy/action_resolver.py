@@ -51,6 +51,7 @@ class ActionResolver:
         self,
         state: GameState,
         assignments: dict[int, BotAssignment],
+        planned_paths: dict[int, list[Pos]] | None = None,
     ) -> list[BotCommand]:
         """
         Resolve all bot assignments into commands for this round.
@@ -94,10 +95,23 @@ class ActionResolver:
                             )
                             continue
 
-            # DELIVER: at drop-off? (use state.drop_off, not task.target_pos)
+            # DELIVER: at any drop-off zone?
             if task.task_type == TaskType.DELIVER:
-                if bot.position == state.drop_off:
-                    commands[bot.id] = BotCommand(bot.id, Action.DROP_OFF)
+                if bot.position in state.drop_off_zones:
+                    active = state.active_orders
+                    if active:
+                        remaining = list(active[0].items_remaining)
+                        has_match = any(inv in remaining for inv in bot.inventory)
+                    else:
+                        has_match = bool(bot.inventory)
+                    if has_match:
+                        commands[bot.id] = BotCommand(bot.id, Action.DROP_OFF)
+                        continue
+                    # No matching items — must escape drop_off, not stay!
+                    movement_bots[bot.id] = bot
+                    # Target the effective_target (eviction set it) or task target
+                    escape_target = assignment.effective_target or task.target_pos
+                    movement_targets[bot.id] = escape_target if escape_target not in state.drop_off_zones else bot.position
                     continue
 
             # This bot needs to move — collect for PIBT
@@ -113,28 +127,69 @@ class ActionResolver:
                 movement_bots[bot.id] = bot
                 movement_targets[bot.id] = bot.position  # Stay in place
 
+        # Step 1.8: Use TSP paths as PIBT waypoints for stuck bots only.
+        # TSP over-constrains normal movement (treats bots as walls instead of
+        # pushable), but helps stuck bots find alternative routes around blockages.
+        # planned_paths contains entries only for bots that need TSP guidance.
+        if planned_paths and movement_bots:
+            for bot_id in movement_bots:
+                if bot_id in commands:
+                    continue
+                path = planned_paths.get(bot_id)
+                if not path:
+                    continue
+                # Use waypoint 3 steps ahead as intermediate PIBT target
+                waypoint_idx = min(3, len(path) - 1)
+                waypoint = path[waypoint_idx]
+                if self._path._grid.is_walkable(waypoint):
+                    movement_targets[bot_id] = waypoint
+
         # Step 2: Run PIBT for all moving bots
         if movement_bots:
-            pibt = PIBTResolver(state.grid, self._path.distance, self._path.corridors)
+            pibt = PIBTResolver(
+                self._path._grid, self._path.distance, self._path.corridors,
+                one_way=self._path._one_way,
+            )
             bot_positions = {bid: bot.position for bid, bot in movement_bots.items()}
 
             # Identify IDLE bots so PIBT gives them lowest priority
             # (prevents navigation_override from giving artificial high priority)
+            # Exception: IDLE bots with navigation_override have a real target
+            # (e.g. preview-staging near drop-off) — give them normal priority
             idle_bot_ids: set[int] = set()
+            urgency: dict[int, int] = {}
             for bot_id in movement_bots:
                 assignment = assignments.get(bot_id)
+                bot = movement_bots[bot_id]
                 if assignment:
                     task = assignment.task
                     if task is None or task.task_type == TaskType.IDLE:
-                        idle_bot_ids.add(bot_id)
+                        if not assignment.navigation_override:
+                            idle_bot_ids.add(bot_id)
+                        urgency[bot_id] = 3  # lowest
+                    elif task.task_type == TaskType.DELIVER:
+                        urgency[bot_id] = 0  # highest — completing order
+                    elif task.task_type == TaskType.PICK_UP:
+                        urgency[bot_id] = 1  # mid — working on active order
+                    elif task.task_type == TaskType.PRE_PICK:
+                        urgency[bot_id] = 2  # low — preview work
+                    # ESCAPE PRIORITY: bot at drop_off that is NOT dropping off
+                    # must escape ASAP — it blocks ALL future deliveries.
+                    # Override urgency to absolute highest so it can push
+                    # ANY bot out of the exit path.
+                    if (bot.position in state.drop_off_zones
+                            and bot_id not in commands):
+                        urgency[bot_id] = -1  # absolute highest
                 # Stationary bots (pick_up/drop_off added as obstacles) are also idle-priority
                 if bot_id in commands:
                     idle_bot_ids.add(bot_id)
+                    urgency[bot_id] = 3
 
             next_positions = pibt.resolve(
                 bot_positions, movement_targets,
                 tiebreak_offset=state.round,
                 idle_bots=idle_bot_ids,
+                urgency=urgency,
             )
 
             # Step 3: Convert positions to actions (skip bots that already have commands)

@@ -1,0 +1,336 @@
+"""AssignmentMixin: bot-to-task assignment methods for TaskPlanner."""
+
+from __future__ import annotations
+
+import logging
+from collections import Counter
+from typing import TYPE_CHECKING, Optional
+
+from bot.models import GameState, Bot, Order
+from bot.engine.world_model import WorldModel
+from bot.strategy.task import Task, TaskType, BotAssignment
+
+if TYPE_CHECKING:
+    from bot.strategy.planner import TaskPlanner
+
+logger = logging.getLogger(__name__)
+
+
+class AssignmentMixin:
+    """Assignment methods extracted from TaskPlanner."""
+
+    def _assign_active_tasks(
+        self: TaskPlanner,
+        world: WorldModel,
+        state: GameState,
+        unassigned: list[int],
+        assignments: dict[int, BotAssignment],
+        claimed_items: set[str],
+    ) -> None:
+        """Assign bots to active order items using Hungarian if available, else greedy."""
+        try:
+            from bot.strategy.hungarian import solve_assignment
+
+            # Collect preview item IDs for cost matrix
+            preview_item_ids: set[str] = set()
+            for order in state.preview_orders:
+                for item_type in order.items_remaining:
+                    for item in world.items_of_type(item_type):
+                        preview_item_ids.add(item.id)
+
+            bots = [state.get_bot(bid) for bid in unassigned]
+            bots = [b for b in bots if b is not None]
+
+            if bots:
+                result = solve_assignment(
+                    bots, world, assignments, claimed_items, preview_item_ids
+                )
+                for bot_id, (task, route) in result.items():
+                    assignments[bot_id].task = task
+                    assignments[bot_id].route = route
+                    assignments[bot_id].route_step = 0
+                    assignments[bot_id].path = None
+                    # Claim ALL items in the route, not just the first
+                    if route:
+                        claimed_items.update(route.item_ids)
+                    elif task.item_id:
+                        claimed_items.add(task.item_id)
+                    logger.debug("Bot %d assigned (hungarian): %s route=%s", bot_id, task,
+                                 f"{len(route.stops)}-stop" if route else "none")
+        except ImportError:
+            # scipy not installed — fall back to greedy
+            logger.debug("scipy not available, using greedy assignment")
+            for bot_id in unassigned:
+                bot = state.get_bot(bot_id)
+                if bot is None:
+                    continue
+                task = self._find_best_task(world, bot, claimed_items, assignments)
+                if task:
+                    assignments[bot_id].task = task
+                    assignments[bot_id].path = None
+                    if task.item_id:
+                        claimed_items.add(task.item_id)
+                    logger.debug("Bot %d assigned (greedy): %s", bot_id, task)
+
+    def _reserve_one_bot_for_preview(
+        self: TaskPlanner,
+        world: WorldModel,
+        state: GameState,
+        unassigned: list[int],
+        assignments: dict[int, BotAssignment],
+        claimed_items: set[str],
+    ) -> list[int]:
+        """
+        Reserve up to 2 unassigned bots for preview picking when active has workers.
+        (Aggressive pipeline: start immediately, no late gate.)
+        """
+        active_list = state.active_orders
+        if not active_list or not unassigned:
+            return unassigned
+        active = active_list[0]
+
+        # Count bots already working on active (PICK_UP/route for active, or DELIVER)
+        working_on_active = 0
+        for bot_id, a in assignments.items():
+            if not a.has_task:
+                continue
+            if a.task and a.task.task_type == TaskType.DELIVER:
+                working_on_active += 1
+            elif a.task and a.task.order_id == active.id:
+                working_on_active += 1
+            elif a.route and a.route.order_id == active.id:
+                working_on_active += 1
+        if working_on_active < 1:
+            return unassigned
+
+        preview_orders = state.preview_orders
+        if not preview_orders:
+            return unassigned
+        preview = preview_orders[0]
+        have, need = self._count_preview_items_in_inventories(world, assignments)
+        if sum(need.values()) == 0:
+            return unassigned
+
+        # Reserve up to 2 bots for preview when we have enough active workers
+        reserve_count = 2 if working_on_active >= 2 else 1
+        reserved: list[int] = []
+        remaining_unassigned = list(unassigned)
+        for _ in range(reserve_count):
+            if not remaining_unassigned:
+                break
+            best_bot_id: Optional[int] = None
+            best_dist = 9999
+            best_task: Optional[Task] = None
+            for bot_id in remaining_unassigned:
+                bot = state.get_bot(bot_id)
+                if bot is None:
+                    continue
+                task = self._find_preview_task(
+                    world, bot, preview, claimed_items,
+                    all_bots_have=have, preview_need=need,
+                )
+                if task is None:
+                    continue
+                d = world.distance(bot.position, task.target_pos)
+                if d < best_dist:
+                    best_dist = d
+                    best_bot_id = bot_id
+                    best_task = task
+            if best_bot_id is None or best_task is None:
+                break
+            assignments[best_bot_id].task = best_task
+            assignments[best_bot_id].path = None
+            if best_task.item_id:
+                claimed_items.add(best_task.item_id)
+            if best_task.item_type:
+                have[best_task.item_type] = have.get(best_task.item_type, 0) + 1
+            reserved.append(best_bot_id)
+            remaining_unassigned = [b for b in remaining_unassigned if b != best_bot_id]
+            logger.debug("Bot %d reserved for preview (pipeline)", best_bot_id)
+        return [bid for bid in unassigned if bid not in reserved]
+
+    def _assign_preview_tasks(
+        self: TaskPlanner,
+        world: WorldModel,
+        state: GameState,
+        unassigned: list[int],
+        assignments: dict[int, BotAssignment],
+        claimed_items: set[str],
+    ) -> None:
+        """Assign idle bots to pre-pick items for preview orders. All available when active has workers."""
+        preview_orders = state.preview_orders
+        if not preview_orders:
+            return
+
+        preview = preview_orders[0]
+        n_bots = len(state.bots)
+
+        # Build preview type diversity: types already assigned to other bots (avoid duplicate picks)
+        preview_claimed_types: Counter[str] = Counter()
+        for bid, a in assignments.items():
+            if a.task and a.task.task_type == TaskType.PRE_PICK and a.task.order_id == preview.id:
+                if a.task.item_type:
+                    preview_claimed_types[a.task.item_type] += 1
+
+        # Allow all idle bots to pre-pick when at least 2 bots work on active (aggressive pipeline)
+        working_on_active = sum(
+            1 for a in assignments.values()
+            if a.has_task and (
+                (a.task and a.task.task_type == TaskType.DELIVER)
+                or (a.task and a.task.order_id == state.active_orders[0].id if state.active_orders else False)
+                or (a.route and a.route.order_id == state.active_orders[0].id if state.active_orders else False)
+            )
+        )
+        if working_on_active >= 2:
+            max_pre_pickers = n_bots
+        else:
+            max_pre_pickers = max(1, n_bots // 2) if n_bots >= 2 else 1
+        pre_pickers = sum(
+            1 for a in assignments.values()
+            if a.task and a.task.task_type == TaskType.PRE_PICK
+        )
+        if pre_pickers >= max_pre_pickers:
+            return
+
+        have, need = self._count_preview_items_in_inventories(world, assignments)
+        if sum(need.values()) == 0:
+            return
+
+        for bot_id in unassigned:
+            bot = state.get_bot(bot_id)
+            if bot is None:
+                continue
+
+            # Allow bots with 1–2 items to pre-pick (pipeline capacity)
+            max_inv = 2 if n_bots >= 3 else (1 if n_bots >= 2 else 0)
+            if len(bot.inventory) > max_inv:
+                continue
+
+            task = self._find_preview_task(
+                world, bot, preview, claimed_items, preview_claimed_types,
+                all_bots_have=have, preview_need=need,
+            )
+            if task:
+                assignments[bot_id].task = task
+                assignments[bot_id].path = None
+                if task.item_id:
+                    claimed_items.add(task.item_id)
+                if task.item_type:
+                    preview_claimed_types[task.item_type] += 1
+                    have[task.item_type] = have.get(task.item_type, 0) + 1
+                logger.debug("Bot %d assigned preview: %s", bot_id, task)
+
+    def _find_preview_task(
+        self: TaskPlanner,
+        world: WorldModel,
+        bot: Bot,
+        preview_order: Order,
+        claimed_items: set[str],
+        preview_claimed_types: Optional[Counter[str]] = None,
+        all_bots_have: Optional[Counter[str]] = None,
+        preview_need: Optional[Counter[str]] = None,
+    ) -> Optional[Task]:
+        """Find nearest preview-order item to pre-pick. Prefer types not yet assigned to others."""
+        if preview_claimed_types is None:
+            preview_claimed_types = Counter()
+
+        best_task: Optional[Task] = None
+        best_dist = 9999
+
+        # Count how many of each type we still need (across all bots + claimed)
+        if all_bots_have is not None and preview_need is not None:
+            preview_budget = Counter()
+            for t, c in preview_need.items():
+                preview_budget[t] = max(0, c - all_bots_have.get(t, 0))
+            for t, c in preview_claimed_types.items():
+                preview_budget[t] = max(0, preview_budget.get(t, 0) - c)
+        else:
+            preview_budget = Counter(preview_order.items_remaining)
+            for inv_item in bot.inventory:
+                if preview_budget[inv_item] > 0:
+                    preview_budget[inv_item] -= 1
+            for t, c in preview_claimed_types.items():
+                preview_budget[t] = max(0, preview_budget.get(t, 0) - c)
+
+        for item_type in preview_order.items_remaining:
+            # Skip types we already have enough of
+            if preview_budget.get(item_type, 0) <= 0:
+                continue
+            for item in world.items_of_type(item_type):
+                if item.id in claimed_items:
+                    continue
+
+                pickup_pos = world.best_pickup_position(bot.position, item.position)
+                if pickup_pos is None:
+                    continue
+
+                d = world.distance(bot.position, pickup_pos)
+                if d < best_dist:
+                    best_dist = d
+                    best_task = Task(
+                        task_type=TaskType.PRE_PICK,
+                        target_pos=pickup_pos,
+                        item_id=item.id,
+                        item_type=item.type,
+                        item_pos=item.position,
+                        order_id=preview_order.id,
+                    )
+
+        return best_task
+
+    def _rush_preview_holders(
+        self: TaskPlanner,
+        world: WorldModel,
+        assignments: dict[int, BotAssignment],
+        rounds_to_order_completion: int = 999,
+    ) -> None:
+        """
+        When active order is almost done (<= pre_pick_rush_remaining items), send bots
+        holding preview items to drop-off so they can auto-deliver on order transition.
+        Uses rounds_to_order_completion so we don't rush too early (waste) or too late.
+        """
+        active = world.state.active_orders
+        if not active:
+            return
+
+        remaining = active[0].items_remaining
+        rush_threshold = (
+            getattr(self._config, "pre_pick_rush_remaining", 4)
+            if getattr(self, "_config", None)
+            else 4
+        )
+        if len(remaining) > rush_threshold:
+            return
+
+        # Don't rush if order won't complete for a long time (staging waste)
+        max_rush_rounds = getattr(self._config, "pre_pick_rush_max_rounds", 25) if getattr(self, "_config", None) else 25
+        if rounds_to_order_completion > max_rush_rounds:
+            return
+
+        preview_orders = world.state.preview_orders
+        if not preview_orders:
+            return
+
+        preview_types = set(preview_orders[0].items_remaining)
+        drop_off = world.state.drop_off
+
+        for bot_id, assignment in assignments.items():
+            if assignment.task and assignment.task.task_type == TaskType.PRE_PICK:
+                bot = world.state.get_bot(bot_id)
+                if bot is None:
+                    continue
+                if not any(inv in preview_types for inv in bot.inventory):
+                    continue
+                # Skip bots already at drop-off: they're positioned for auto-delivery,
+                # rushing them to DELIVER just blocks active deliverers
+                d_to_drop = world.distance(bot.position, drop_off)
+                if d_to_drop == 0:
+                    continue
+                # Rush when bot can reach drop-off before or shortly after order completes
+                if d_to_drop <= rounds_to_order_completion + 3:
+                    assignment.task = Task(
+                        task_type=TaskType.DELIVER,
+                        target_pos=drop_off,
+                    )
+                    assignment.path = None
+                    logger.debug("Bot %d rushing preview items to drop-off", bot_id)

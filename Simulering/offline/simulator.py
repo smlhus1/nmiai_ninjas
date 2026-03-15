@@ -74,7 +74,8 @@ class SimState:
     items: list[SimItem]
     orders: list[SimOrder]
     drop_off: Pos
-    score: int
+    drop_off_zones: tuple[Pos, ...] = ()
+    score: int = 0
 
     def to_dict(self) -> dict:
         """Convert to same JSON format as game server (for compatibility)."""
@@ -100,10 +101,12 @@ class SimState:
             "orders": [
                 {"id": o.id, "items_required": o.items_required,
                  "items_delivered": o.items_delivered,
+                 "items_remaining": o.items_remaining,
                  "complete": o.complete, "status": o.status}
                 for o in visible_orders
             ],
             "drop_off": list(self.drop_off),
+            "drop_off_zones": [list(z) for z in self.drop_off_zones] if self.drop_off_zones else [list(self.drop_off)],
             "score": self.score,
         }
 
@@ -126,13 +129,15 @@ class Simulator:
                  drop_off: Pos, spawn_positions: list[Pos],
                  order_sequence: list[dict],
                  item_types_at_shelves: dict[Pos, str],
-                 max_rounds: int = 300):
+                 max_rounds: int = 300,
+                 drop_off_zones: list[Pos] | None = None):
         self.width = width
         self.height = height
         self.walls = frozenset(walls)
         self.shelves = frozenset(shelves)
         self.blocked = self.walls | self.shelves
         self.drop_off = drop_off
+        self.drop_off_zones: list[Pos] = drop_off_zones or [drop_off]
         self.spawn_positions = spawn_positions
         self.order_sequence = order_sequence  # all orders in game order
         self.shelf_types = item_types_at_shelves  # shelf_pos → item_type
@@ -218,6 +223,7 @@ class Simulator:
                             list(o.items_delivered), o.status)
                     for o in self._orders if o.status in ("active", "preview")],
             drop_off=self.drop_off,
+            drop_off_zones=tuple(self.drop_off_zones),
             score=self._score,
         )
 
@@ -310,9 +316,9 @@ class Simulator:
         bot.inventory.append(item.item_type)
 
     def _resolve_dropoff(self, bot: SimBot):
-        """Drop off matching items if bot is on drop-off."""
-        if bot.position != self.drop_off:
-            return  # not on drop-off cell
+        """Drop off matching items if bot is on any drop-off zone."""
+        if bot.position not in self.drop_off_zones:
+            return  # not on any drop-off cell
 
         active = self._get_active_order()
         if active is None:
@@ -357,8 +363,9 @@ class Simulator:
         if preview:
             preview.status = "active"
 
-            # Auto-delivery: check ALL bots' inventory against new active
-            for b in self._bots:
+            # Auto-delivery: ONLY the delivering bot gets auto-delivery
+            # (verified via live server testing — other bots must manually drop_off)
+            for b in [bot]:
                 remaining = list(preview.items_remaining)
                 new_inventory = []
                 for item_type in b.inventory:
@@ -385,7 +392,7 @@ class Simulator:
         self._promote_next_preview()
 
     def _promote_next_preview(self):
-        """Promote next hidden order to preview. Generate new orders if needed."""
+        """Promote next hidden order to preview. Generate new orders when recon is exhausted."""
         if self._next_order_idx >= len(self._orders):
             self._generate_next_order()
         if self._next_order_idx < len(self._orders):
@@ -606,6 +613,10 @@ class Simulator:
                 shelf_types[pos] = item_type
 
         drop_off: Pos = tuple(recon["drop_off"])
+        raw_zones = recon.get("drop_off_zones")
+        drop_off_zones: list[Pos] | None = None
+        if raw_zones:
+            drop_off_zones = [tuple(z) for z in raw_zones]
 
         spawns = [tuple(p) for p in recon.get("bot_start_positions", [])]
         if not spawns:
@@ -633,6 +644,7 @@ class Simulator:
             order_sequence=order_seq,
             item_types_at_shelves=shelf_types,
             max_rounds=max_rounds,
+            drop_off_zones=drop_off_zones,
         )
 
     @classmethod
