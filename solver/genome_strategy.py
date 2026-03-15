@@ -65,9 +65,18 @@ class GenomeStrategy:
         self._pe._one_way = self._pe._detect_one_way_aisles(self._grid, self.drop_off_zones[0])
         self._pe._one_way_enabled = True
 
+        # Guidance graph for congestion-aware routing
+        from bot.engine.guidance import GuidanceGraph
+        self._guidance = GuidanceGraph(
+            self._grid,
+            one_way=self._pe._one_way,
+            alpha=2.0, beta=3.0, decay=0.7, update_interval=3,
+        )
+
         self._pibt = PIBTResolver(
             self._grid, self._pe.distance, self._pe.corridors,
             one_way=self._pe._one_way,
+            guidance_fn=self._guidance.guided_distance,
         )
 
         # Bot state
@@ -121,6 +130,10 @@ class GenomeStrategy:
         for item in items:
             pos = tuple(item["position"])
             items_by_pos.setdefault(pos, []).append(item)
+
+        # Update guidance graph with traffic data
+        bot_positions_map = {b["id"]: tuple(b["position"]) for b in bots}
+        self._guidance.on_round(bot_positions_map, round_num)
 
         # Get current genome order
         genome_order = None
@@ -208,17 +221,37 @@ class GenomeStrategy:
                         self.bot_target[bid] = PARKING_SPOTS[bid % len(PARKING_SPOTS)]
                         self.assigned_bots.discard(bid)
                         continue
+                # At drop-off but NO matching items → ESCAPE!
+                # Must leave immediately so deliverers can use the zone
+                movement_bots[bid] = pos
+                escape = PARKING_SPOTS[bid % len(PARKING_SPOTS)]
+                movement_targets[bid] = escape
+                continue
 
             # Movement
             movement_bots[bid] = pos
             movement_targets[bid] = target if target else pos
 
-        # PIBT urgency
+        # TRICK 1: Add stationary bots (pickup/dropoff) to PIBT as obstacles
+        # Without this, PIBT sends bots INTO occupied pickup/dropoff positions
+        for bid, act in immediate.items():
+            bot = [b for b in bots if b["id"] == bid][0]
+            pos = tuple(bot["position"])
+            if bid not in movement_bots:
+                movement_bots[bid] = pos
+                movement_targets[bid] = pos  # stay in place
+
+        # TRICK 2: PIBT urgency with ESCAPE priority
         urgency: dict[int, int] = {}
         idle_bots: set[int] = set()
         for bid in movement_bots:
+            pos = movement_bots[bid]
             g = self.bot_goal.get(bid, "park")
-            if g == "deliver":
+
+            # ESCAPE: bot ON drop-off that is NOT delivering → absolute highest priority
+            if pos in self.drop_off_zones and bid not in immediate:
+                urgency[bid] = -1  # ESCAPE — push everyone
+            elif g == "deliver":
                 urgency[bid] = 0
             elif g == "pickup":
                 urgency[bid] = 1
