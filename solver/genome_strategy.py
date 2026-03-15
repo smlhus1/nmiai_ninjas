@@ -140,6 +140,20 @@ class GenomeStrategy:
         if self.genome_order_idx < len(self.genome.orders):
             genome_order = self.genome.orders[self.genome_order_idx]
 
+        # === STUCK DETECTION ===
+        if not hasattr(self, '_stuck_count'):
+            self._stuck_count: dict[int, int] = {}
+            self._prev_pos: dict[int, Pos] = {}
+
+        for bot in bots:
+            bid = bot["id"]
+            pos = tuple(bot["position"])
+            if pos == self._prev_pos.get(bid):
+                self._stuck_count[bid] = self._stuck_count.get(bid, 0) + 1
+            else:
+                self._stuck_count[bid] = 0
+            self._prev_pos[bid] = pos
+
         # === ASSIGN GOALS ===
         for bot in bots:
             bid = bot["id"]
@@ -151,14 +165,21 @@ class GenomeStrategy:
                 self.bot_target[bid] = PARKING_SPOTS[bid % len(PARKING_SPOTS)]
                 self.bot_item_type[bid] = None
 
-            # Already has goal — check completion
             goal = self.bot_goal[bid]
             target = self.bot_target[bid]
+
+            # STUCK DETECTION: bot hasn't moved in 10+ rounds → re-route
+            if self._stuck_count.get(bid, 0) > 10 and goal in ("pickup", "deliver"):
+                # Pick a random alternative parking spot as intermediate waypoint
+                import random as _rng
+                alt = PARKING_SPOTS[_rng.randint(0, len(PARKING_SPOTS)-1)]
+                self.bot_target[bid] = alt
+                self._stuck_count[bid] = 0
+                # Don't change goal — just redirect temporarily
 
             # Pickup completed (inventory grew)
             if goal == "pickup" and inv and self.bot_item_type[bid]:
                 if self.bot_item_type[bid] in inv:
-                    # Picked up — now deliver
                     dz = min(self.drop_off_zones, key=lambda z: self._pe.distance(pos, z) or 9999)
                     self.bot_goal[bid] = "deliver"
                     self.bot_target[bid] = dz
@@ -167,11 +188,12 @@ class GenomeStrategy:
 
             # Delivery completed (at drop-off with matching items → sim handles it)
             if goal == "deliver" and pos in self.drop_off_zones:
-                # Will send drop_off action below
-                pass
+                pass  # handled in action generation
 
-            # Idle/parked bot — assign next item from genome
+            # Idle/parked bot — assign next item from genome (active order)
             if goal == "park" and bid not in self.assigned_bots:
+                assigned = False
+                # Try current order first
                 if genome_order and self.genome_item_idx < len(genome_order.assignments):
                     assignment = genome_order.assignments[self.genome_item_idx]
                     item_type = assignment.item_type
@@ -186,6 +208,9 @@ class GenomeStrategy:
                             self.bot_item_type[bid] = item_type
                             self.assigned_bots.add(bid)
                             self.genome_item_idx += 1
+                            assigned = True
+
+                # No work for this bot — keep parked
 
         # === GENERATE ACTIONS ===
         # Separate immediate actions vs movement
