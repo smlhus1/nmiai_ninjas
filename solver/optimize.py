@@ -37,6 +37,16 @@ logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 
+class TrackingAdapter(BotAdapter):
+    """BotAdapter that tracks score per round."""
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.round_scores = []
+    def __call__(self, gs):
+        self.round_scores.append(gs.get('score', 0))
+        return super().__call__(gs)
+
+
 def run_sim(recon_path: str, config: CoordinatorConfig) -> tuple[int, int, int, int]:
     """Run one simulation, return (score, items, orders, rounds_used)."""
     sim = Simulator.from_recon_file(recon_path)
@@ -45,6 +55,16 @@ def run_sim(recon_path: str, config: CoordinatorConfig) -> tuple[int, int, int, 
     if isinstance(result, dict):
         return result["score"], result.get("items_delivered", 0), result.get("orders_completed", 0), result.get("rounds_used", 500)
     return result.score, result.items_delivered, result.orders_completed, getattr(result, 'rounds_used', 500)
+
+
+def run_sim_velocity(recon_path: str, config: CoordinatorConfig, target_round: int = 250) -> tuple[int, int]:
+    """Run sim, return (score_at_target_round, final_score)."""
+    sim = Simulator.from_recon_file(recon_path)
+    adapter = TrackingAdapter(suppress_logs=True, config=config)
+    result = sim.run(adapter)
+    final = result["score"] if isinstance(result, dict) else result.score
+    early = adapter.round_scores[target_round - 1] if len(adapter.round_scores) >= target_round else 0
+    return early, final
 
 
 def mutate_nightmare(cfg: CoordinatorConfig, temperature: float = 1.0) -> CoordinatorConfig:
@@ -218,13 +238,83 @@ def noise_search(recon_path: str, n: int = 100) -> None:
     print(f"\nOverall best: noise seed={best_seed}, score={best_score}")
 
 
+def velocity_climb(
+    recon_path: str,
+    target_round: int = 250,
+    iterations: int = 200,
+    restarts: int = 5,
+    seed: int = 42,
+) -> tuple[CoordinatorConfig, int]:
+    """Optimize for score at target_round (not final score)."""
+    random.seed(seed)
+
+    starts = [
+        CoordinatorConfig.nightmare(),
+    ]
+    # Also try with different guidance
+    c = CoordinatorConfig.nightmare(); c.guidance_enabled = False
+    starts.append(c)
+    c = CoordinatorConfig.nightmare(); c.guidance_alpha = 3.0; c.guidance_beta = 5.0; c.guidance_update_interval = 8
+    starts.append(c)
+
+    best_config = starts[0]
+    early, final = run_sim_velocity(recon_path, best_config, target_round)
+    best_early = early
+    print(f"Baseline: R{target_round}={early}, R500={final}")
+
+    for restart in range(restarts):
+        if restart < len(starts):
+            current = copy.copy(starts[restart])
+        else:
+            current = copy.copy(starts[0])
+            for _ in range(6):
+                current = mutate_nightmare(current, 1.0)
+
+        early, final = run_sim_velocity(recon_path, current, target_round)
+        current_early = early
+        print(f"\nRestart {restart}: R{target_round}={early}, R500={final}")
+
+        stale = 0
+        for i in range(iterations):
+            if stale > 30:
+                candidate = copy.copy(current)
+                for _ in range(4):
+                    candidate = mutate_nightmare(candidate, 1.0)
+                stale = 0
+            else:
+                candidate = mutate_nightmare(current, max(0.3, 1.0 - i/iterations))
+
+            early, final = run_sim_velocity(recon_path, candidate, target_round)
+
+            if early > current_early:
+                current = candidate
+                current_early = early
+                stale = 0
+                marker = " ***" if early > best_early else " *"
+                print(f"  [{restart}.{i:3d}] R{target_round}={early}, R500={final}{marker}")
+
+                if early > best_early:
+                    best_early = early
+                    best_config = copy.copy(current)
+                    Path("logs/best_velocity_config.json").write_text(
+                        json.dumps(best_config.to_dict(), indent=2))
+            else:
+                stale += 1
+
+            if (i + 1) % 50 == 0:
+                print(f"  [{restart}.{i:3d}] progress: R{target_round}={current_early}, best={best_early}, stale={stale}")
+
+    return best_config, best_early
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--recon", required=True)
-    parser.add_argument("--mode", choices=["sweep", "climb", "noise"], default="sweep")
+    parser.add_argument("--mode", choices=["sweep", "climb", "noise", "velocity"], default="sweep")
     parser.add_argument("--iterations", type=int, default=200)
     parser.add_argument("--restarts", type=int, default=5)
+    parser.add_argument("--target-round", type=int, default=250)
     args = parser.parse_args()
 
     t0 = time.time()
@@ -243,6 +333,16 @@ if __name__ == "__main__":
         print(f"Saved to {out}")
     elif args.mode == "noise":
         noise_search(args.recon)
+    elif args.mode == "velocity":
+        best_cfg, best_early = velocity_climb(
+            args.recon, target_round=args.target_round,
+            iterations=args.iterations, restarts=args.restarts,
+        )
+        print(f"\n=== Best velocity config (R{args.target_round}={best_early}) ===")
+        print(json.dumps(best_cfg.to_dict(), indent=2))
+        out = Path("logs/best_velocity_config.json")
+        out.write_text(json.dumps(best_cfg.to_dict(), indent=2))
+        print(f"Saved to {out}")
 
     elapsed = time.time() - t0
     print(f"\nTotal time: {elapsed:.1f}s")
