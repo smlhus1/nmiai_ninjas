@@ -33,8 +33,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def run(ws_url: str, config: CoordinatorConfig | None = None, viz: bool = False) -> None:
+async def run(ws_url: str, config: CoordinatorConfig | None = None, viz: bool = False,
+              mapf_plan_path: str | None = None) -> None:
     """Main game loop — connect, receive, decide, respond."""
+    mapf_executor = None
+    if mapf_plan_path:
+        from mapf_planner import plan_from_dict
+        from mapf_executor import MAPFExecutor
+        plan_data = json.loads(Path(mapf_plan_path).read_text(encoding="utf-8"))
+        plan = plan_from_dict(plan_data)
+        mapf_executor = MAPFExecutor(plan)
+        logger.info("MAPF mode: loaded plan from %s (expected score: %d)",
+                     mapf_plan_path, plan.expected_score)
+
     coordinator = Coordinator(config=config)
     if viz:
         coordinator.start_viz()
@@ -68,7 +79,11 @@ async def run(ws_url: str, config: CoordinatorConfig | None = None, viz: bool = 
                     break
 
             if msg_type == "game_state":
-                response = coordinator.on_game_state(data)
+                if mapf_executor:
+                    response = mapf_executor.on_game_state(data)
+                    coordinator.on_game_state(data)  # for recon logging
+                else:
+                    response = coordinator.on_game_state(data)
                 await ws.send(json.dumps(response))
 
             elif msg_type == "game_over":
@@ -183,6 +198,12 @@ def main() -> None:
         action="store_true",
         help="Start visualization WebSocket server on port 8765",
     )
+    parser.add_argument(
+        "--mapf",
+        type=str,
+        default=None,
+        help="Path to MAPF plan JSON for deterministic replay",
+    )
     args = parser.parse_args()
 
     if not args.url:
@@ -205,7 +226,8 @@ def main() -> None:
             logger.warning("Config file %s not found, using default", config_path)
 
     try:
-        asyncio.run(run(args.url, config=config, viz=getattr(args, 'viz', False)))
+        asyncio.run(run(args.url, config=config, viz=getattr(args, 'viz', False),
+                       mapf_plan_path=getattr(args, 'mapf', None)))
     except KeyboardInterrupt:
         logger.info("Shutting down")
     except Exception:
