@@ -1,0 +1,45 @@
+Easy: curl ^"https://api.ainm.no/games/request^" ^
+  -H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+  -H ^"Referer: https://app.ainm.no/^" ^
+  -H ^"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36^" ^
+  -H ^"sec-ch-ua: ^\^"Not:A-Brand^\^";v=^\^"99^\^", ^\^"Google Chrome^\^";v=^\^"145^\^", ^\^"Chromium^\^";v=^\^"145^\^"^" ^
+  -H ^"Content-Type: application/json^" ^
+  -H ^"sec-ch-ua-mobile: ?0^" ^
+  --data-raw ^"^{^\^"map_id^\^":^\^"c89da2ec-3ca7-40c9-a3b1-8036fca3d0b7^\^"^}^"
+  Medium: curl ^"https://api.ainm.no/games/request^" ^
+  -H ^"accept: */*^" ^
+  -H ^"accept-language: no,nb;q=0.9,en-GB;q=0.8,en-US;q=0.7,en;q=0.6,nn;q=0.5,sv;q=0.4^" ^
+  -H ^"cache-control: no-cache^" ^
+  -H ^"content-type: application/json^" ^
+  -b ^"access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzczNTg4OTI0fQ.86A2pLNqUTzeJGJXKrNHnHDA1QovV58JknBcrsjzm-E^" ^
+  -H ^"origin: https://app.ainm.no^" ^
+  -H ^"pragma: no-cache^" ^
+  -H ^"priority: u=1, i^" ^
+  -H ^"referer: https://app.ainm.no/^" ^
+  -H ^"sec-ch-ua: ^\^"Not:A-Brand^\^";v=^\^"99^\^", ^\^"Google Chrome^\^";v=^\^"145^\^", ^\^"Chromium^\^";v=^\^"145^\^"^" ^
+  -H ^"sec-ch-ua-mobile: ?0^" ^
+  -H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+  -H ^"sec-fetch-dest: empty^" ^
+  -H ^"sec-fetch-mode: cors^" ^
+  -H ^"sec-fetch-site: same-site^" ^
+  -H ^"user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36^" ^
+  --data-raw ^"^{^\^"map_id^\^":^\^"3c523f5e-160b-452c-9ffc-171ef1e845f5^\^"^}^"
+  Hard: curl ^"https://api.ainm.no/games/request^" ^
+  -H ^"accept: */*^" ^
+  -H ^"accept-language: no,nb;q=0.9,en-GB;q=0.8,en-US;q=0.7,en;q=0.6,nn;q=0.5,sv;q=0.4^" ^
+  -H ^"cache-control: no-cache^" ^
+  -H ^"content-type: application/json^" ^
+  -b ^"access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzczNTg4OTI0fQ.86A2pLNqUTzeJGJXKrNHnHDA1QovV58JknBcrsjzm-E^" ^
+  -H ^"origin: https://app.ainm.no^" ^
+  -H ^"pragma: no-cache^" ^
+  -H ^"priority: u=1, i^" ^
+  -H ^"referer: https://app.ainm.no/^" ^
+  -H ^"sec-ch-ua: ^\^"Not:A-Brand^\^";v=^\^"99^\^", ^\^"Google Chrome^\^";v=^\^"145^\^", ^\^"Chromium^\^";v=^\^"145^\^"^" ^
+  -H ^"sec-ch-ua-mobile: ?0^" ^
+  -H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+  -H ^"sec-fetch-dest: empty^" ^
+  -H ^"sec-fetch-mode: cors^" ^
+  -H ^"sec-fetch-site: same-site^" ^
+  -H ^"user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36^" ^
+  --data-raw ^"^{^\^"map_id^\^":^\^"05ddc283-9097-4314-824c-90b3269a3d95^\^"^}^"
+  

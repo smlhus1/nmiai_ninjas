@@ -1,0 +1,505 @@
+{
+  "fingerprint": "31642503",
+  "grid_size": [
+    12,
+    10
+  ],
+  "walls": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      0,
+      3
+    ],
+    [
+      0,
+      4
+    ],
+    [
+      0,
+      5
+    ],
+    [
+      0,
+      6
+    ],
+    [
+      0,
+      7
+    ],
+    [
+      0,
+      8
+    ],
+    [
+      0,
+      9
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      9
+    ],
+    [
+      2,
+      0
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      9
+    ],
+    [
+      3,
+      0
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      4,
+      9
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      5,
+      9
+    ],
+    [
+      6,
+      0
+    ],
+    [
+      6,
+      2
+    ],
+    [
+      6,
+      3
+    ],
+    [
+      6,
+      4
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      6,
+      9
+    ],
+    [
+      7,
+      0
+    ],
+    [
+      7,
+      9
+    ],
+    [
+      8,
+      0
+    ],
+    [
+      8,
+      9
+    ],
+    [
+      9,
+      0
+    ],
+    [
+      9,
+      9
+    ],
+    [
+      10,
+      0
+    ],
+    [
+      10,
+      2
+    ],
+    [
+      10,
+      3
+    ],
+    [
+      10,
+      4
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      10,
+      9
+    ],
+    [
+      11,
+      0
+    ],
+    [
+      11,
+      1
+    ],
+    [
+      11,
+      2
+    ],
+    [
+      11,
+      3
+    ],
+    [
+      11,
+      4
+    ],
+    [
+      11,
+      5
+    ],
+    [
+      11,
+      6
+    ],
+    [
+      11,
+      7
+    ],
+    [
+      11,
+      8
+    ],
+    [
+      11,
+      9
+    ]
+  ],
+  "drop_off": [
+    1,
+    8
+  ],
+  "shelf_map": {
+    "cheese": [
+      [
+        3,
+        2
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        7,
+        3
+      ]
+    ],
+    "butter": [
+      [
+        5,
+        2
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        9,
+        3
+      ],
+      [
+        3,
+        6
+      ],
+      [
+        9,
+        6
+      ]
+    ],
+    "yogurt": [
+      [
+        3,
+        3
+      ],
+      [
+        7,
+        2
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        5,
+        6
+      ]
+    ],
+    "milk": [
+      [
+        5,
+        3
+      ],
+      [
+        9,
+        2
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        7,
+        6
+      ]
+    ]
+  },
+  "bot_count": 1,
+  "bot_start_positions": [
+    [
+      10,
+      8
+    ]
+  ],
+  "order_sequence": [
+    {
+      "id": "order_0",
+      "items_required": [
+        "yogurt",
+        "milk",
+        "yogurt"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "active",
+      "activated_round": 0,
+      "completed_round": null
+    },
+    {
+      "id": "order_1",
+      "items_required": [
+        "cheese",
+        "milk",
+        "cheese"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "preview",
+      "activated_round": 15,
+      "completed_round": null
+    },
+    {
+      "id": "order_2",
+      "items_required": [
+        "yogurt",
+        "yogurt",
+        "butter"
+      ],
+      "first_seen_round": 15,
+      "status_when_seen": "preview",
+      "activated_round": 37,
+      "completed_round": null
+    },
+    {
+      "id": "order_3",
+      "items_required": [
+        "yogurt",
+        "yogurt",
+        "milk"
+      ],
+      "first_seen_round": 37,
+      "status_when_seen": "preview",
+      "activated_round": 51,
+      "completed_round": null
+    },
+    {
+      "id": "order_4",
+      "items_required": [
+        "milk",
+        "cheese",
+        "butter",
+        "milk"
+      ],
+      "first_seen_round": 51,
+      "status_when_seen": "preview",
+      "activated_round": 69,
+      "completed_round": null
+    },
+    {
+      "id": "order_5",
+      "items_required": [
+        "butter",
+        "butter",
+        "butter",
+        "milk"
+      ],
+      "first_seen_round": 69,
+      "status_when_seen": "preview",
+      "activated_round": 114,
+      "completed_round": null
+    },
+    {
+      "id": "order_6",
+      "items_required": [
+        "milk",
+        "cheese",
+        "yogurt"
+      ],
+      "first_seen_round": 114,
+      "status_when_seen": "preview",
+      "activated_round": 132,
+      "completed_round": null
+    },
+    {
+      "id": "order_7",
+      "items_required": [
+        "cheese",
+        "butter",
+        "cheese",
+        "cheese"
+      ],
+      "first_seen_round": 132,
+      "status_when_seen": "preview",
+      "activated_round": 148,
+      "completed_round": null
+    },
+    {
+      "id": "order_8",
+      "items_required": [
+        "butter",
+        "butter",
+        "butter",
+        "butter"
+      ],
+      "first_seen_round": 148,
+      "status_when_seen": "preview",
+      "activated_round": 162,
+      "completed_round": null
+    },
+    {
+      "id": "order_9",
+      "items_required": [
+        "cheese",
+        "butter",
+        "yogurt"
+      ],
+      "first_seen_round": 162,
+      "status_when_seen": "preview",
+      "activated_round": 190,
+      "completed_round": null
+    },
+    {
+      "id": "order_10",
+      "items_required": [
+        "yogurt",
+        "cheese",
+        "milk"
+      ],
+      "first_seen_round": 190,
+      "status_when_seen": "preview",
+      "activated_round": 212,
+      "completed_round": null
+    },
+    {
+      "id": "order_11",
+      "items_required": [
+        "cheese",
+        "cheese",
+        "milk",
+        "butter"
+      ],
+      "first_seen_round": 212,
+      "status_when_seen": "preview",
+      "activated_round": 234,
+      "completed_round": null
+    },
+    {
+      "id": "order_12",
+      "items_required": [
+        "cheese",
+        "cheese",
+        "yogurt"
+      ],
+      "first_seen_round": 234,
+      "status_when_seen": "preview",
+      "activated_round": 250,
+      "completed_round": null
+    },
+    {
+      "id": "order_13",
+      "items_required": [
+        "yogurt",
+        "yogurt",
+        "milk"
+      ],
+      "first_seen_round": 250,
+      "status_when_seen": "preview",
+      "activated_round": 266,
+      "completed_round": null
+    },
+    {
+      "id": "order_14",
+      "items_required": [
+        "milk",
+        "milk",
+        "yogurt",
+        "milk"
+      ],
+      "first_seen_round": 266,
+      "status_when_seen": "preview",
+      "activated_round": 292,
+      "completed_round": null
+    },
+    {
+      "id": "order_15",
+      "items_required": [
+        "yogurt",
+        "milk",
+        "butter",
+        "butter"
+      ],
+      "first_seen_round": 292,
+      "status_when_seen": "preview",
+      "activated_round": null,
+      "completed_round": null
+    }
+  ],
+  "total_rounds": 300,
+  "final_score": 118
+}

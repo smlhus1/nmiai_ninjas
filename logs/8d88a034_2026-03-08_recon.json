@@ -1,0 +1,979 @@
+{
+  "fingerprint": "8d88a034",
+  "grid_size": [
+    22,
+    14
+  ],
+  "walls": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      0,
+      3
+    ],
+    [
+      0,
+      4
+    ],
+    [
+      0,
+      5
+    ],
+    [
+      0,
+      6
+    ],
+    [
+      0,
+      7
+    ],
+    [
+      0,
+      8
+    ],
+    [
+      0,
+      9
+    ],
+    [
+      0,
+      10
+    ],
+    [
+      0,
+      11
+    ],
+    [
+      0,
+      12
+    ],
+    [
+      0,
+      13
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      13
+    ],
+    [
+      2,
+      0
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      8
+    ],
+    [
+      2,
+      9
+    ],
+    [
+      2,
+      10
+    ],
+    [
+      2,
+      13
+    ],
+    [
+      3,
+      0
+    ],
+    [
+      3,
+      13
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      4,
+      13
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      5,
+      13
+    ],
+    [
+      6,
+      0
+    ],
+    [
+      6,
+      2
+    ],
+    [
+      6,
+      3
+    ],
+    [
+      6,
+      4
+    ],
+    [
+      6,
+      5
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      6,
+      8
+    ],
+    [
+      6,
+      9
+    ],
+    [
+      6,
+      10
+    ],
+    [
+      6,
+      13
+    ],
+    [
+      7,
+      0
+    ],
+    [
+      7,
+      13
+    ],
+    [
+      8,
+      0
+    ],
+    [
+      8,
+      13
+    ],
+    [
+      9,
+      0
+    ],
+    [
+      9,
+      13
+    ],
+    [
+      10,
+      0
+    ],
+    [
+      10,
+      2
+    ],
+    [
+      10,
+      3
+    ],
+    [
+      10,
+      4
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      10,
+      8
+    ],
+    [
+      10,
+      9
+    ],
+    [
+      10,
+      10
+    ],
+    [
+      10,
+      13
+    ],
+    [
+      11,
+      0
+    ],
+    [
+      11,
+      13
+    ],
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      13
+    ],
+    [
+      13,
+      0
+    ],
+    [
+      13,
+      13
+    ],
+    [
+      14,
+      0
+    ],
+    [
+      14,
+      2
+    ],
+    [
+      14,
+      3
+    ],
+    [
+      14,
+      4
+    ],
+    [
+      14,
+      5
+    ],
+    [
+      14,
+      6
+    ],
+    [
+      14,
+      8
+    ],
+    [
+      14,
+      9
+    ],
+    [
+      14,
+      10
+    ],
+    [
+      14,
+      13
+    ],
+    [
+      15,
+      0
+    ],
+    [
+      15,
+      13
+    ],
+    [
+      16,
+      0
+    ],
+    [
+      16,
+      13
+    ],
+    [
+      17,
+      0
+    ],
+    [
+      17,
+      13
+    ],
+    [
+      18,
+      0
+    ],
+    [
+      18,
+      2
+    ],
+    [
+      18,
+      3
+    ],
+    [
+      18,
+      4
+    ],
+    [
+      18,
+      5
+    ],
+    [
+      18,
+      6
+    ],
+    [
+      18,
+      8
+    ],
+    [
+      18,
+      9
+    ],
+    [
+      18,
+      10
+    ],
+    [
+      18,
+      13
+    ],
+    [
+      19,
+      0
+    ],
+    [
+      19,
+      13
+    ],
+    [
+      20,
+      0
+    ],
+    [
+      20,
+      13
+    ],
+    [
+      21,
+      0
+    ],
+    [
+      21,
+      1
+    ],
+    [
+      21,
+      2
+    ],
+    [
+      21,
+      3
+    ],
+    [
+      21,
+      4
+    ],
+    [
+      21,
+      5
+    ],
+    [
+      21,
+      6
+    ],
+    [
+      21,
+      7
+    ],
+    [
+      21,
+      8
+    ],
+    [
+      21,
+      9
+    ],
+    [
+      21,
+      10
+    ],
+    [
+      21,
+      11
+    ],
+    [
+      21,
+      12
+    ],
+    [
+      21,
+      13
+    ]
+  ],
+  "drop_off": [
+    1,
+    12
+  ],
+  "shelf_map": {
+    "flour": [
+      [
+        3,
+        2
+      ],
+      [
+        7,
+        3
+      ],
+      [
+        11,
+        4
+      ],
+      [
+        15,
+        5
+      ]
+    ],
+    "bread": [
+      [
+        5,
+        2
+      ],
+      [
+        9,
+        3
+      ],
+      [
+        13,
+        4
+      ],
+      [
+        17,
+        5
+      ]
+    ],
+    "milk": [
+      [
+        3,
+        3
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        11,
+        5
+      ],
+      [
+        15,
+        6
+      ]
+    ],
+    "yogurt": [
+      [
+        5,
+        3
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        13,
+        5
+      ],
+      [
+        17,
+        6
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        9,
+        9
+      ],
+      [
+        15,
+        8
+      ]
+    ],
+    "rice": [
+      [
+        3,
+        4
+      ],
+      [
+        7,
+        5
+      ],
+      [
+        11,
+        6
+      ],
+      [
+        5,
+        8
+      ],
+      [
+        7,
+        10
+      ],
+      [
+        17,
+        8
+      ]
+    ],
+    "cheese": [
+      [
+        5,
+        4
+      ],
+      [
+        9,
+        5
+      ],
+      [
+        13,
+        6
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        9,
+        10
+      ],
+      [
+        15,
+        9
+      ]
+    ],
+    "pasta": [
+      [
+        3,
+        5
+      ],
+      [
+        7,
+        6
+      ],
+      [
+        15,
+        2
+      ],
+      [
+        5,
+        9
+      ],
+      [
+        11,
+        8
+      ],
+      [
+        17,
+        9
+      ]
+    ],
+    "oats": [
+      [
+        5,
+        5
+      ],
+      [
+        9,
+        6
+      ],
+      [
+        17,
+        2
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        13,
+        8
+      ],
+      [
+        15,
+        10
+      ]
+    ],
+    "eggs": [
+      [
+        3,
+        6
+      ],
+      [
+        11,
+        2
+      ],
+      [
+        15,
+        3
+      ],
+      [
+        5,
+        10
+      ],
+      [
+        11,
+        9
+      ],
+      [
+        17,
+        10
+      ]
+    ],
+    "cereal": [
+      [
+        5,
+        6
+      ],
+      [
+        13,
+        2
+      ],
+      [
+        17,
+        3
+      ],
+      [
+        7,
+        8
+      ],
+      [
+        13,
+        9
+      ]
+    ],
+    "cream": [
+      [
+        7,
+        2
+      ],
+      [
+        11,
+        3
+      ],
+      [
+        15,
+        4
+      ],
+      [
+        9,
+        8
+      ],
+      [
+        11,
+        10
+      ]
+    ],
+    "butter": [
+      [
+        9,
+        2
+      ],
+      [
+        13,
+        3
+      ],
+      [
+        17,
+        4
+      ],
+      [
+        7,
+        9
+      ],
+      [
+        13,
+        10
+      ]
+    ]
+  },
+  "bot_count": 5,
+  "bot_start_positions": [
+    [
+      20,
+      12
+    ],
+    [
+      20,
+      12
+    ],
+    [
+      20,
+      12
+    ],
+    [
+      20,
+      12
+    ],
+    [
+      20,
+      12
+    ]
+  ],
+  "order_sequence": [
+    {
+      "id": "order_0",
+      "items_required": [
+        "yogurt",
+        "pasta",
+        "cheese"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "active",
+      "activated_round": 0,
+      "completed_round": null
+    },
+    {
+      "id": "order_1",
+      "items_required": [
+        "milk",
+        "rice",
+        "oats",
+        "cream"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "preview",
+      "activated_round": 35,
+      "completed_round": null
+    },
+    {
+      "id": "order_2",
+      "items_required": [
+        "butter",
+        "bread",
+        "pasta",
+        "butter"
+      ],
+      "first_seen_round": 35,
+      "status_when_seen": "preview",
+      "activated_round": 60,
+      "completed_round": null
+    },
+    {
+      "id": "order_3",
+      "items_required": [
+        "rice",
+        "oats",
+        "cheese"
+      ],
+      "first_seen_round": 60,
+      "status_when_seen": "preview",
+      "activated_round": 86,
+      "completed_round": null
+    },
+    {
+      "id": "order_4",
+      "items_required": [
+        "pasta",
+        "yogurt",
+        "pasta",
+        "bread",
+        "pasta"
+      ],
+      "first_seen_round": 86,
+      "status_when_seen": "preview",
+      "activated_round": 93,
+      "completed_round": null
+    },
+    {
+      "id": "order_5",
+      "items_required": [
+        "pasta",
+        "butter",
+        "pasta",
+        "flour",
+        "rice"
+      ],
+      "first_seen_round": 93,
+      "status_when_seen": "preview",
+      "activated_round": 119,
+      "completed_round": null
+    },
+    {
+      "id": "order_6",
+      "items_required": [
+        "cheese",
+        "pasta",
+        "flour",
+        "yogurt"
+      ],
+      "first_seen_round": 119,
+      "status_when_seen": "preview",
+      "activated_round": 132,
+      "completed_round": null
+    },
+    {
+      "id": "order_7",
+      "items_required": [
+        "pasta",
+        "cream",
+        "cereal",
+        "milk"
+      ],
+      "first_seen_round": 132,
+      "status_when_seen": "preview",
+      "activated_round": 158,
+      "completed_round": null
+    },
+    {
+      "id": "order_8",
+      "items_required": [
+        "cheese",
+        "yogurt",
+        "butter",
+        "oats",
+        "pasta"
+      ],
+      "first_seen_round": 158,
+      "status_when_seen": "preview",
+      "activated_round": 164,
+      "completed_round": null
+    },
+    {
+      "id": "order_9",
+      "items_required": [
+        "bread",
+        "cheese",
+        "cereal",
+        "rice",
+        "milk"
+      ],
+      "first_seen_round": 164,
+      "status_when_seen": "preview",
+      "activated_round": 187,
+      "completed_round": null
+    },
+    {
+      "id": "order_10",
+      "items_required": [
+        "rice",
+        "cheese",
+        "butter",
+        "butter",
+        "milk"
+      ],
+      "first_seen_round": 187,
+      "status_when_seen": "preview",
+      "activated_round": 209,
+      "completed_round": null
+    },
+    {
+      "id": "order_11",
+      "items_required": [
+        "cream",
+        "cereal",
+        "cream"
+      ],
+      "first_seen_round": 209,
+      "status_when_seen": "preview",
+      "activated_round": 230,
+      "completed_round": null
+    },
+    {
+      "id": "order_12",
+      "items_required": [
+        "bread",
+        "cereal",
+        "cheese",
+        "milk",
+        "oats"
+      ],
+      "first_seen_round": 230,
+      "status_when_seen": "preview",
+      "activated_round": 248,
+      "completed_round": null
+    },
+    {
+      "id": "order_13",
+      "items_required": [
+        "yogurt",
+        "flour",
+        "rice",
+        "eggs",
+        "rice"
+      ],
+      "first_seen_round": 248,
+      "status_when_seen": "preview",
+      "activated_round": 265,
+      "completed_round": null
+    },
+    {
+      "id": "order_14",
+      "items_required": [
+        "butter",
+        "cereal",
+        "milk",
+        "milk"
+      ],
+      "first_seen_round": 265,
+      "status_when_seen": "preview",
+      "activated_round": 271,
+      "completed_round": null
+    },
+    {
+      "id": "order_15",
+      "items_required": [
+        "bread",
+        "rice",
+        "cheese",
+        "butter"
+      ],
+      "first_seen_round": 271,
+      "status_when_seen": "preview",
+      "activated_round": 296,
+      "completed_round": null
+    },
+    {
+      "id": "order_16",
+      "items_required": [
+        "eggs",
+        "pasta",
+        "milk",
+        "pasta"
+      ],
+      "first_seen_round": 296,
+      "status_when_seen": "preview",
+      "activated_round": null,
+      "completed_round": null
+    }
+  ],
+  "total_rounds": 300,
+  "final_score": 139
+}

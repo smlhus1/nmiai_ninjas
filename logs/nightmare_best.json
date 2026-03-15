@@ -1,0 +1,27 @@
+{
+  "best_score": 20,
+  "baseline_score": 1,
+  "improvement": 19,
+  "recon": "C:\\projects\\personlig\\nmiai\\logs\\74001e7f_2026-03-09_recon.json",
+  "params": {
+    "n_active_bots": 1,
+    "max_concurrent_deliverers": 1,
+    "deliver_min_items": 1,
+    "deliver_if_close": 5,
+    "deliver_full_only": false,
+    "zone_mode": 0,
+    "n_zones": 3,
+    "zone_penalty": 5.0,
+    "w_distance": 1.0,
+    "w_completion": 5.0,
+    "w_remaining": 1.0,
+    "preview_enabled": false,
+    "preview_max": 1,
+    "endgame_threshold": 40,
+    "one_way_vertical": false,
+    "parking_mode": 0,
+    "disperse_rounds": 10,
+    "noise": 0.0,
+    "seed": 0
+  }
+}

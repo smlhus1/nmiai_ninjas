@@ -1,0 +1,410 @@
+{
+  "version": 1,
+  "fingerprint": "515edd5d",
+  "bot_count": 10,
+  "drop_off": [
+    1,
+    16
+  ],
+  "bot_start": [
+    26,
+    16
+  ],
+  "order_plans": [
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            19,
+            13
+          ],
+          "pickup_pos": [
+            20,
+            13
+          ],
+          "item_type": "tomatoes"
+        },
+        {
+          "shelf_pos": [
+            19,
+            12
+          ],
+          "pickup_pos": [
+            20,
+            12
+          ],
+          "item_type": "onions"
+        },
+        {
+          "shelf_pos": [
+            21,
+            11
+          ],
+          "pickup_pos": [
+            20,
+            11
+          ],
+          "item_type": "bread"
+        },
+        {
+          "shelf_pos": [
+            15,
+            8
+          ],
+          "pickup_pos": [
+            15,
+            9
+          ],
+          "item_type": "cereal"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              19,
+              13
+            ],
+            "pickup_pos": [
+              20,
+              13
+            ],
+            "item_type": "tomatoes"
+          },
+          {
+            "shelf_pos": [
+              19,
+              12
+            ],
+            "pickup_pos": [
+              20,
+              12
+            ],
+            "item_type": "onions"
+          },
+          {
+            "shelf_pos": [
+              21,
+              11
+            ],
+            "pickup_pos": [
+              20,
+              11
+            ],
+            "item_type": "bread"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              15,
+              8
+            ],
+            "pickup_pos": [
+              15,
+              9
+            ],
+            "item_type": "cereal"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            11,
+            8
+          ],
+          "pickup_pos": [
+            11,
+            9
+          ],
+          "item_type": "pasta"
+        },
+        {
+          "shelf_pos": [
+            5,
+            11
+          ],
+          "pickup_pos": [
+            4,
+            11
+          ],
+          "item_type": "rice"
+        }
+      ],
+      "estimated_rounds": 83,
+      "order_index": 0,
+      "order_id": "order_0",
+      "items_required": [
+        "cereal",
+        "tomatoes",
+        "onions",
+        "bread"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            12
+          ],
+          "pickup_pos": [
+            4,
+            12
+          ],
+          "item_type": "pasta"
+        },
+        {
+          "shelf_pos": [
+            3,
+            12
+          ],
+          "pickup_pos": [
+            4,
+            12
+          ],
+          "item_type": "pasta"
+        },
+        {
+          "shelf_pos": [
+            5,
+            11
+          ],
+          "pickup_pos": [
+            4,
+            11
+          ],
+          "item_type": "rice"
+        },
+        {
+          "shelf_pos": [
+            5,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "bananas"
+        },
+        {
+          "shelf_pos": [
+            5,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "bananas"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              12
+            ],
+            "pickup_pos": [
+              4,
+              12
+            ],
+            "item_type": "pasta"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              3,
+              12
+            ],
+            "pickup_pos": [
+              4,
+              12
+            ],
+            "item_type": "pasta"
+          },
+          {
+            "shelf_pos": [
+              5,
+              11
+            ],
+            "pickup_pos": [
+              4,
+              11
+            ],
+            "item_type": "rice"
+          },
+          {
+            "shelf_pos": [
+              5,
+              3
+            ],
+            "pickup_pos": [
+              4,
+              3
+            ],
+            "item_type": "bananas"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              5,
+              3
+            ],
+            "pickup_pos": [
+              4,
+              3
+            ],
+            "item_type": "bananas"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            5,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "bananas"
+        },
+        {
+          "shelf_pos": [
+            5,
+            7
+          ],
+          "pickup_pos": [
+            4,
+            7
+          ],
+          "item_type": "bread"
+        }
+      ],
+      "estimated_rounds": 86,
+      "order_index": 1,
+      "order_id": "order_1",
+      "items_required": [
+        "pasta",
+        "bananas",
+        "bananas",
+        "rice",
+        "pasta"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            14
+          ],
+          "pickup_pos": [
+            3,
+            15
+          ],
+          "item_type": "onions"
+        },
+        {
+          "shelf_pos": [
+            5,
+            13
+          ],
+          "pickup_pos": [
+            4,
+            13
+          ],
+          "item_type": "bread"
+        },
+        {
+          "shelf_pos": [
+            5,
+            13
+          ],
+          "pickup_pos": [
+            4,
+            13
+          ],
+          "item_type": "bread"
+        },
+        {
+          "shelf_pos": [
+            5,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "bananas"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              14
+            ],
+            "pickup_pos": [
+              3,
+              15
+            ],
+            "item_type": "onions"
+          },
+          {
+            "shelf_pos": [
+              5,
+              13
+            ],
+            "pickup_pos": [
+              4,
+              13
+            ],
+            "item_type": "bread"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              5,
+              13
+            ],
+            "pickup_pos": [
+              4,
+              13
+            ],
+            "item_type": "bread"
+          },
+          {
+            "shelf_pos": [
+              5,
+              3
+            ],
+            "pickup_pos": [
+              4,
+              3
+            ],
+            "item_type": "bananas"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 50,
+      "order_index": 2,
+      "order_id": "order_2",
+      "items_required": [
+        "bananas",
+        "bread",
+        "onions",
+        "bread"
+      ]
+    }
+  ]
+}

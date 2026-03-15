@@ -1,0 +1,1434 @@
+{
+  "version": 1,
+  "fingerprint": "8d88a034",
+  "bot_count": 5,
+  "drop_off": [
+    1,
+    12
+  ],
+  "bot_start": [
+    20,
+    12
+  ],
+  "order_plans": [
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            17,
+            6
+          ],
+          "pickup_pos": [
+            17,
+            7
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            17,
+            6
+          ],
+          "pickup_pos": [
+            17,
+            7
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            17,
+            5
+          ],
+          "pickup_pos": [
+            16,
+            5
+          ],
+          "item_type": "eggs"
+        },
+        {
+          "shelf_pos": [
+            17,
+            5
+          ],
+          "pickup_pos": [
+            16,
+            5
+          ],
+          "item_type": "eggs"
+        },
+        {
+          "shelf_pos": [
+            15,
+            4
+          ],
+          "pickup_pos": [
+            16,
+            4
+          ],
+          "item_type": "yogurt"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              17,
+              6
+            ],
+            "pickup_pos": [
+              17,
+              7
+            ],
+            "item_type": "milk"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              17,
+              6
+            ],
+            "pickup_pos": [
+              17,
+              7
+            ],
+            "item_type": "milk"
+          },
+          {
+            "shelf_pos": [
+              17,
+              5
+            ],
+            "pickup_pos": [
+              16,
+              5
+            ],
+            "item_type": "eggs"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              17,
+              5
+            ],
+            "pickup_pos": [
+              16,
+              5
+            ],
+            "item_type": "eggs"
+          },
+          {
+            "shelf_pos": [
+              15,
+              4
+            ],
+            "pickup_pos": [
+              16,
+              4
+            ],
+            "item_type": "yogurt"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            3,
+            8
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "milk"
+        }
+      ],
+      "estimated_rounds": 129,
+      "order_index": 0,
+      "order_id": "order_0",
+      "items_required": [
+        "eggs",
+        "eggs",
+        "milk",
+        "milk",
+        "yogurt"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            8
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        },
+        {
+          "shelf_pos": [
+            5,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "bread"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              8
+            ],
+            "pickup_pos": [
+              3,
+              7
+            ],
+            "item_type": "milk"
+          },
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          },
+          {
+            "shelf_pos": [
+              5,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "bread"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            3,
+            8
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "milk"
+        }
+      ],
+      "estimated_rounds": 34,
+      "order_index": 1,
+      "order_id": "order_1",
+      "items_required": [
+        "milk",
+        "cream",
+        "cream",
+        "bread"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            5,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            5,
+            2
+          ],
+          "pickup_pos": [
+            4,
+            2
+          ],
+          "item_type": "eggs"
+        },
+        {
+          "shelf_pos": [
+            3,
+            2
+          ],
+          "pickup_pos": [
+            3,
+            1
+          ],
+          "item_type": "pasta"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              5,
+              3
+            ],
+            "pickup_pos": [
+              4,
+              3
+            ],
+            "item_type": "milk"
+          },
+          {
+            "shelf_pos": [
+              5,
+              2
+            ],
+            "pickup_pos": [
+              4,
+              2
+            ],
+            "item_type": "eggs"
+          },
+          {
+            "shelf_pos": [
+              3,
+              2
+            ],
+            "pickup_pos": [
+              3,
+              1
+            ],
+            "item_type": "pasta"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 32,
+      "order_index": 2,
+      "order_id": "order_2",
+      "items_required": [
+        "milk",
+        "eggs",
+        "pasta"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            7,
+            9
+          ],
+          "pickup_pos": [
+            8,
+            9
+          ],
+          "item_type": "cereal"
+        },
+        {
+          "shelf_pos": [
+            9,
+            9
+          ],
+          "pickup_pos": [
+            8,
+            9
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            7,
+            10
+          ],
+          "pickup_pos": [
+            7,
+            11
+          ],
+          "item_type": "oats"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              7,
+              9
+            ],
+            "pickup_pos": [
+              8,
+              9
+            ],
+            "item_type": "cereal"
+          },
+          {
+            "shelf_pos": [
+              9,
+              9
+            ],
+            "pickup_pos": [
+              8,
+              9
+            ],
+            "item_type": "milk"
+          },
+          {
+            "shelf_pos": [
+              7,
+              10
+            ],
+            "pickup_pos": [
+              7,
+              11
+            ],
+            "item_type": "oats"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            5,
+            10
+          ],
+          "pickup_pos": [
+            5,
+            11
+          ],
+          "item_type": "butter"
+        },
+        {
+          "shelf_pos": [
+            5,
+            8
+          ],
+          "pickup_pos": [
+            4,
+            8
+          ],
+          "item_type": "oats"
+        }
+      ],
+      "estimated_rounds": 38,
+      "order_index": 3,
+      "order_id": "order_3",
+      "items_required": [
+        "cream",
+        "cereal",
+        "oats",
+        "milk"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            5,
+            2
+          ],
+          "pickup_pos": [
+            4,
+            2
+          ],
+          "item_type": "eggs"
+        },
+        {
+          "shelf_pos": [
+            3,
+            4
+          ],
+          "pickup_pos": [
+            4,
+            4
+          ],
+          "item_type": "oats"
+        },
+        {
+          "shelf_pos": [
+            3,
+            6
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "butter"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              5,
+              2
+            ],
+            "pickup_pos": [
+              4,
+              2
+            ],
+            "item_type": "eggs"
+          },
+          {
+            "shelf_pos": [
+              3,
+              4
+            ],
+            "pickup_pos": [
+              4,
+              4
+            ],
+            "item_type": "oats"
+          },
+          {
+            "shelf_pos": [
+              3,
+              6
+            ],
+            "pickup_pos": [
+              3,
+              7
+            ],
+            "item_type": "butter"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 30,
+      "order_index": 4,
+      "order_id": "order_4",
+      "items_required": [
+        "eggs",
+        "butter",
+        "oats"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            10
+          ],
+          "pickup_pos": [
+            3,
+            11
+          ],
+          "item_type": "rice"
+        },
+        {
+          "shelf_pos": [
+            5,
+            10
+          ],
+          "pickup_pos": [
+            5,
+            11
+          ],
+          "item_type": "butter"
+        },
+        {
+          "shelf_pos": [
+            5,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "bread"
+        },
+        {
+          "shelf_pos": [
+            5,
+            6
+          ],
+          "pickup_pos": [
+            5,
+            7
+          ],
+          "item_type": "flour"
+        },
+        {
+          "shelf_pos": [
+            5,
+            2
+          ],
+          "pickup_pos": [
+            4,
+            2
+          ],
+          "item_type": "eggs"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              10
+            ],
+            "pickup_pos": [
+              3,
+              11
+            ],
+            "item_type": "rice"
+          },
+          {
+            "shelf_pos": [
+              5,
+              10
+            ],
+            "pickup_pos": [
+              5,
+              11
+            ],
+            "item_type": "butter"
+          },
+          {
+            "shelf_pos": [
+              5,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "bread"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              5,
+              6
+            ],
+            "pickup_pos": [
+              5,
+              7
+            ],
+            "item_type": "flour"
+          },
+          {
+            "shelf_pos": [
+              5,
+              2
+            ],
+            "pickup_pos": [
+              4,
+              2
+            ],
+            "item_type": "eggs"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            5,
+            5
+          ],
+          "pickup_pos": [
+            4,
+            5
+          ],
+          "item_type": "rice"
+        }
+      ],
+      "estimated_rounds": 49,
+      "order_index": 5,
+      "order_id": "order_5",
+      "items_required": [
+        "flour",
+        "butter",
+        "bread",
+        "rice",
+        "eggs"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            10
+          ],
+          "pickup_pos": [
+            3,
+            11
+          ],
+          "item_type": "rice"
+        },
+        {
+          "shelf_pos": [
+            7,
+            9
+          ],
+          "pickup_pos": [
+            8,
+            9
+          ],
+          "item_type": "cereal"
+        },
+        {
+          "shelf_pos": [
+            7,
+            10
+          ],
+          "pickup_pos": [
+            7,
+            11
+          ],
+          "item_type": "oats"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              10
+            ],
+            "pickup_pos": [
+              3,
+              11
+            ],
+            "item_type": "rice"
+          },
+          {
+            "shelf_pos": [
+              7,
+              9
+            ],
+            "pickup_pos": [
+              8,
+              9
+            ],
+            "item_type": "cereal"
+          },
+          {
+            "shelf_pos": [
+              7,
+              10
+            ],
+            "pickup_pos": [
+              7,
+              11
+            ],
+            "item_type": "oats"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 24,
+      "order_index": 6,
+      "order_id": "order_6",
+      "items_required": [
+        "rice",
+        "cereal",
+        "oats"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            9,
+            8
+          ],
+          "pickup_pos": [
+            8,
+            8
+          ],
+          "item_type": "yogurt"
+        },
+        {
+          "shelf_pos": [
+            7,
+            6
+          ],
+          "pickup_pos": [
+            7,
+            7
+          ],
+          "item_type": "bread"
+        },
+        {
+          "shelf_pos": [
+            3,
+            8
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "milk"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              9,
+              8
+            ],
+            "pickup_pos": [
+              8,
+              8
+            ],
+            "item_type": "yogurt"
+          },
+          {
+            "shelf_pos": [
+              7,
+              6
+            ],
+            "pickup_pos": [
+              7,
+              7
+            ],
+            "item_type": "bread"
+          },
+          {
+            "shelf_pos": [
+              3,
+              8
+            ],
+            "pickup_pos": [
+              3,
+              7
+            ],
+            "item_type": "milk"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 28,
+      "order_index": 7,
+      "order_id": "order_7",
+      "items_required": [
+        "bread",
+        "yogurt",
+        "milk"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            7,
+            10
+          ],
+          "pickup_pos": [
+            7,
+            11
+          ],
+          "item_type": "oats"
+        },
+        {
+          "shelf_pos": [
+            7,
+            9
+          ],
+          "pickup_pos": [
+            8,
+            9
+          ],
+          "item_type": "cereal"
+        },
+        {
+          "shelf_pos": [
+            5,
+            10
+          ],
+          "pickup_pos": [
+            5,
+            11
+          ],
+          "item_type": "butter"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              7,
+              10
+            ],
+            "pickup_pos": [
+              7,
+              11
+            ],
+            "item_type": "oats"
+          },
+          {
+            "shelf_pos": [
+              7,
+              9
+            ],
+            "pickup_pos": [
+              8,
+              9
+            ],
+            "item_type": "cereal"
+          },
+          {
+            "shelf_pos": [
+              5,
+              10
+            ],
+            "pickup_pos": [
+              5,
+              11
+            ],
+            "item_type": "butter"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 24,
+      "order_index": 8,
+      "order_id": "order_8",
+      "items_required": [
+        "oats",
+        "cereal",
+        "butter"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        },
+        {
+          "shelf_pos": [
+            5,
+            6
+          ],
+          "pickup_pos": [
+            5,
+            7
+          ],
+          "item_type": "flour"
+        },
+        {
+          "shelf_pos": [
+            7,
+            9
+          ],
+          "pickup_pos": [
+            8,
+            9
+          ],
+          "item_type": "cereal"
+        },
+        {
+          "shelf_pos": [
+            9,
+            3
+          ],
+          "pickup_pos": [
+            8,
+            3
+          ],
+          "item_type": "eggs"
+        },
+        {
+          "shelf_pos": [
+            7,
+            3
+          ],
+          "pickup_pos": [
+            8,
+            3
+          ],
+          "item_type": "pasta"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          },
+          {
+            "shelf_pos": [
+              5,
+              6
+            ],
+            "pickup_pos": [
+              5,
+              7
+            ],
+            "item_type": "flour"
+          },
+          {
+            "shelf_pos": [
+              7,
+              9
+            ],
+            "pickup_pos": [
+              8,
+              9
+            ],
+            "item_type": "cereal"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              9,
+              3
+            ],
+            "pickup_pos": [
+              8,
+              3
+            ],
+            "item_type": "eggs"
+          },
+          {
+            "shelf_pos": [
+              7,
+              3
+            ],
+            "pickup_pos": [
+              8,
+              3
+            ],
+            "item_type": "pasta"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            7,
+            4
+          ],
+          "pickup_pos": [
+            8,
+            4
+          ],
+          "item_type": "cheese"
+        }
+      ],
+      "estimated_rounds": 63,
+      "order_index": 9,
+      "order_id": "order_9",
+      "items_required": [
+        "cream",
+        "eggs",
+        "pasta",
+        "cereal",
+        "flour"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            3,
+            2
+          ],
+          "pickup_pos": [
+            3,
+            1
+          ],
+          "item_type": "pasta"
+        },
+        {
+          "shelf_pos": [
+            3,
+            3
+          ],
+          "pickup_pos": [
+            4,
+            3
+          ],
+          "item_type": "cheese"
+        },
+        {
+          "shelf_pos": [
+            3,
+            5
+          ],
+          "pickup_pos": [
+            4,
+            5
+          ],
+          "item_type": "bread"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              3,
+              2
+            ],
+            "pickup_pos": [
+              3,
+              1
+            ],
+            "item_type": "pasta"
+          },
+          {
+            "shelf_pos": [
+              3,
+              3
+            ],
+            "pickup_pos": [
+              4,
+              3
+            ],
+            "item_type": "cheese"
+          },
+          {
+            "shelf_pos": [
+              3,
+              5
+            ],
+            "pickup_pos": [
+              4,
+              5
+            ],
+            "item_type": "bread"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 32,
+      "order_index": 10,
+      "order_id": "order_10",
+      "items_required": [
+        "cheese",
+        "pasta",
+        "bread"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            5,
+            10
+          ],
+          "pickup_pos": [
+            5,
+            11
+          ],
+          "item_type": "butter"
+        },
+        {
+          "shelf_pos": [
+            5,
+            10
+          ],
+          "pickup_pos": [
+            5,
+            11
+          ],
+          "item_type": "butter"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        },
+        {
+          "shelf_pos": [
+            3,
+            8
+          ],
+          "pickup_pos": [
+            3,
+            7
+          ],
+          "item_type": "milk"
+        },
+        {
+          "shelf_pos": [
+            9,
+            8
+          ],
+          "pickup_pos": [
+            8,
+            8
+          ],
+          "item_type": "yogurt"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              5,
+              10
+            ],
+            "pickup_pos": [
+              5,
+              11
+            ],
+            "item_type": "butter"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              5,
+              10
+            ],
+            "pickup_pos": [
+              5,
+              11
+            ],
+            "item_type": "butter"
+          },
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          },
+          {
+            "shelf_pos": [
+              3,
+              8
+            ],
+            "pickup_pos": [
+              3,
+              7
+            ],
+            "item_type": "milk"
+          }
+        ],
+        [
+          {
+            "shelf_pos": [
+              9,
+              8
+            ],
+            "pickup_pos": [
+              8,
+              8
+            ],
+            "item_type": "yogurt"
+          }
+        ]
+      ],
+      "pre_picks": [
+        {
+          "shelf_pos": [
+            7,
+            10
+          ],
+          "pickup_pos": [
+            7,
+            11
+          ],
+          "item_type": "oats"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        }
+      ],
+      "estimated_rounds": 58,
+      "order_index": 11,
+      "order_id": "order_11",
+      "items_required": [
+        "butter",
+        "milk",
+        "yogurt",
+        "butter",
+        "cream"
+      ]
+    },
+    {
+      "pickup_sequence": [
+        {
+          "shelf_pos": [
+            5,
+            8
+          ],
+          "pickup_pos": [
+            4,
+            8
+          ],
+          "item_type": "oats"
+        },
+        {
+          "shelf_pos": [
+            3,
+            9
+          ],
+          "pickup_pos": [
+            4,
+            9
+          ],
+          "item_type": "cream"
+        },
+        {
+          "shelf_pos": [
+            7,
+            10
+          ],
+          "pickup_pos": [
+            7,
+            11
+          ],
+          "item_type": "oats"
+        }
+      ],
+      "batches": [
+        [
+          {
+            "shelf_pos": [
+              5,
+              8
+            ],
+            "pickup_pos": [
+              4,
+              8
+            ],
+            "item_type": "oats"
+          },
+          {
+            "shelf_pos": [
+              3,
+              9
+            ],
+            "pickup_pos": [
+              4,
+              9
+            ],
+            "item_type": "cream"
+          },
+          {
+            "shelf_pos": [
+              7,
+              10
+            ],
+            "pickup_pos": [
+              7,
+              11
+            ],
+            "item_type": "oats"
+          }
+        ]
+      ],
+      "pre_picks": [],
+      "estimated_rounds": 24,
+      "order_index": 12,
+      "order_id": "order_12",
+      "items_required": [
+        "oats",
+        "cream",
+        "oats"
+      ]
+    }
+  ]
+}

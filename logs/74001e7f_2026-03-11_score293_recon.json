@@ -1,0 +1,1865 @@
+{
+  "fingerprint": "74001e7f",
+  "grid_size": [
+    30,
+    18
+  ],
+  "walls": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      0,
+      3
+    ],
+    [
+      0,
+      4
+    ],
+    [
+      0,
+      5
+    ],
+    [
+      0,
+      6
+    ],
+    [
+      0,
+      7
+    ],
+    [
+      0,
+      8
+    ],
+    [
+      0,
+      9
+    ],
+    [
+      0,
+      10
+    ],
+    [
+      0,
+      11
+    ],
+    [
+      0,
+      12
+    ],
+    [
+      0,
+      13
+    ],
+    [
+      0,
+      14
+    ],
+    [
+      0,
+      15
+    ],
+    [
+      0,
+      16
+    ],
+    [
+      0,
+      17
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      17
+    ],
+    [
+      2,
+      0
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      7
+    ],
+    [
+      2,
+      8
+    ],
+    [
+      2,
+      10
+    ],
+    [
+      2,
+      11
+    ],
+    [
+      2,
+      12
+    ],
+    [
+      2,
+      13
+    ],
+    [
+      2,
+      14
+    ],
+    [
+      2,
+      17
+    ],
+    [
+      3,
+      0
+    ],
+    [
+      3,
+      17
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      4,
+      17
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      5,
+      17
+    ],
+    [
+      6,
+      0
+    ],
+    [
+      6,
+      2
+    ],
+    [
+      6,
+      3
+    ],
+    [
+      6,
+      4
+    ],
+    [
+      6,
+      5
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      6,
+      7
+    ],
+    [
+      6,
+      8
+    ],
+    [
+      6,
+      10
+    ],
+    [
+      6,
+      11
+    ],
+    [
+      6,
+      12
+    ],
+    [
+      6,
+      13
+    ],
+    [
+      6,
+      14
+    ],
+    [
+      6,
+      17
+    ],
+    [
+      7,
+      0
+    ],
+    [
+      7,
+      17
+    ],
+    [
+      8,
+      0
+    ],
+    [
+      8,
+      17
+    ],
+    [
+      9,
+      0
+    ],
+    [
+      9,
+      17
+    ],
+    [
+      10,
+      0
+    ],
+    [
+      10,
+      2
+    ],
+    [
+      10,
+      3
+    ],
+    [
+      10,
+      4
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      10,
+      7
+    ],
+    [
+      10,
+      8
+    ],
+    [
+      10,
+      10
+    ],
+    [
+      10,
+      11
+    ],
+    [
+      10,
+      12
+    ],
+    [
+      10,
+      13
+    ],
+    [
+      10,
+      14
+    ],
+    [
+      10,
+      17
+    ],
+    [
+      11,
+      0
+    ],
+    [
+      11,
+      17
+    ],
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      17
+    ],
+    [
+      13,
+      0
+    ],
+    [
+      13,
+      17
+    ],
+    [
+      14,
+      0
+    ],
+    [
+      14,
+      2
+    ],
+    [
+      14,
+      3
+    ],
+    [
+      14,
+      4
+    ],
+    [
+      14,
+      5
+    ],
+    [
+      14,
+      6
+    ],
+    [
+      14,
+      7
+    ],
+    [
+      14,
+      8
+    ],
+    [
+      14,
+      10
+    ],
+    [
+      14,
+      11
+    ],
+    [
+      14,
+      12
+    ],
+    [
+      14,
+      13
+    ],
+    [
+      14,
+      14
+    ],
+    [
+      14,
+      17
+    ],
+    [
+      15,
+      0
+    ],
+    [
+      15,
+      17
+    ],
+    [
+      16,
+      0
+    ],
+    [
+      16,
+      17
+    ],
+    [
+      17,
+      0
+    ],
+    [
+      17,
+      17
+    ],
+    [
+      18,
+      0
+    ],
+    [
+      18,
+      2
+    ],
+    [
+      18,
+      3
+    ],
+    [
+      18,
+      4
+    ],
+    [
+      18,
+      5
+    ],
+    [
+      18,
+      6
+    ],
+    [
+      18,
+      7
+    ],
+    [
+      18,
+      8
+    ],
+    [
+      18,
+      10
+    ],
+    [
+      18,
+      11
+    ],
+    [
+      18,
+      12
+    ],
+    [
+      18,
+      13
+    ],
+    [
+      18,
+      14
+    ],
+    [
+      18,
+      17
+    ],
+    [
+      19,
+      0
+    ],
+    [
+      19,
+      17
+    ],
+    [
+      20,
+      0
+    ],
+    [
+      20,
+      17
+    ],
+    [
+      21,
+      0
+    ],
+    [
+      21,
+      17
+    ],
+    [
+      22,
+      0
+    ],
+    [
+      22,
+      2
+    ],
+    [
+      22,
+      3
+    ],
+    [
+      22,
+      4
+    ],
+    [
+      22,
+      5
+    ],
+    [
+      22,
+      6
+    ],
+    [
+      22,
+      7
+    ],
+    [
+      22,
+      8
+    ],
+    [
+      22,
+      10
+    ],
+    [
+      22,
+      11
+    ],
+    [
+      22,
+      12
+    ],
+    [
+      22,
+      13
+    ],
+    [
+      22,
+      14
+    ],
+    [
+      22,
+      17
+    ],
+    [
+      23,
+      0
+    ],
+    [
+      23,
+      17
+    ],
+    [
+      24,
+      0
+    ],
+    [
+      24,
+      17
+    ],
+    [
+      25,
+      0
+    ],
+    [
+      25,
+      17
+    ],
+    [
+      26,
+      0
+    ],
+    [
+      26,
+      2
+    ],
+    [
+      26,
+      3
+    ],
+    [
+      26,
+      4
+    ],
+    [
+      26,
+      5
+    ],
+    [
+      26,
+      6
+    ],
+    [
+      26,
+      7
+    ],
+    [
+      26,
+      8
+    ],
+    [
+      26,
+      10
+    ],
+    [
+      26,
+      11
+    ],
+    [
+      26,
+      12
+    ],
+    [
+      26,
+      13
+    ],
+    [
+      26,
+      14
+    ],
+    [
+      26,
+      17
+    ],
+    [
+      27,
+      0
+    ],
+    [
+      27,
+      17
+    ],
+    [
+      28,
+      0
+    ],
+    [
+      28,
+      17
+    ],
+    [
+      29,
+      0
+    ],
+    [
+      29,
+      1
+    ],
+    [
+      29,
+      2
+    ],
+    [
+      29,
+      3
+    ],
+    [
+      29,
+      4
+    ],
+    [
+      29,
+      5
+    ],
+    [
+      29,
+      6
+    ],
+    [
+      29,
+      7
+    ],
+    [
+      29,
+      8
+    ],
+    [
+      29,
+      9
+    ],
+    [
+      29,
+      10
+    ],
+    [
+      29,
+      11
+    ],
+    [
+      29,
+      12
+    ],
+    [
+      29,
+      13
+    ],
+    [
+      29,
+      14
+    ],
+    [
+      29,
+      15
+    ],
+    [
+      29,
+      16
+    ],
+    [
+      29,
+      17
+    ]
+  ],
+  "drop_off": [
+    1,
+    16
+  ],
+  "drop_off_zones": [
+    [
+      1,
+      16
+    ],
+    [
+      15,
+      16
+    ],
+    [
+      27,
+      16
+    ]
+  ],
+  "shelf_map": {
+    "juice": [
+      [
+        3,
+        2
+      ],
+      [
+        9,
+        5
+      ],
+      [
+        15,
+        2
+      ],
+      [
+        21,
+        5
+      ]
+    ],
+    "oats": [
+      [
+        5,
+        2
+      ],
+      [
+        7,
+        6
+      ],
+      [
+        17,
+        2
+      ],
+      [
+        19,
+        6
+      ]
+    ],
+    "carrots": [
+      [
+        3,
+        3
+      ],
+      [
+        9,
+        6
+      ],
+      [
+        15,
+        3
+      ],
+      [
+        21,
+        6
+      ]
+    ],
+    "pasta": [
+      [
+        5,
+        3
+      ],
+      [
+        7,
+        7
+      ],
+      [
+        17,
+        3
+      ],
+      [
+        19,
+        7
+      ]
+    ],
+    "rice": [
+      [
+        3,
+        4
+      ],
+      [
+        9,
+        7
+      ],
+      [
+        15,
+        4
+      ],
+      [
+        21,
+        7
+      ]
+    ],
+    "cereal": [
+      [
+        5,
+        4
+      ],
+      [
+        7,
+        8
+      ],
+      [
+        17,
+        4
+      ],
+      [
+        19,
+        8
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        7,
+        13
+      ],
+      [
+        15,
+        11
+      ],
+      [
+        19,
+        14
+      ]
+    ],
+    "yogurt": [
+      [
+        3,
+        5
+      ],
+      [
+        9,
+        8
+      ],
+      [
+        15,
+        5
+      ],
+      [
+        21,
+        8
+      ],
+      [
+        5,
+        10
+      ],
+      [
+        9,
+        13
+      ],
+      [
+        17,
+        11
+      ],
+      [
+        21,
+        14
+      ]
+    ],
+    "flour": [
+      [
+        5,
+        5
+      ],
+      [
+        11,
+        2
+      ],
+      [
+        17,
+        5
+      ],
+      [
+        23,
+        2
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        7,
+        14
+      ],
+      [
+        15,
+        12
+      ],
+      [
+        23,
+        10
+      ]
+    ],
+    "sugar": [
+      [
+        3,
+        6
+      ],
+      [
+        13,
+        2
+      ],
+      [
+        15,
+        6
+      ],
+      [
+        25,
+        2
+      ],
+      [
+        5,
+        11
+      ],
+      [
+        9,
+        14
+      ],
+      [
+        17,
+        12
+      ],
+      [
+        25,
+        10
+      ]
+    ],
+    "bread": [
+      [
+        5,
+        6
+      ],
+      [
+        11,
+        3
+      ],
+      [
+        17,
+        6
+      ],
+      [
+        23,
+        3
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        11,
+        10
+      ],
+      [
+        15,
+        13
+      ],
+      [
+        23,
+        11
+      ]
+    ],
+    "tomatoes": [
+      [
+        3,
+        7
+      ],
+      [
+        13,
+        3
+      ],
+      [
+        15,
+        7
+      ],
+      [
+        25,
+        3
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        13,
+        10
+      ],
+      [
+        17,
+        13
+      ],
+      [
+        25,
+        11
+      ]
+    ],
+    "bananas": [
+      [
+        5,
+        7
+      ],
+      [
+        11,
+        4
+      ],
+      [
+        17,
+        7
+      ],
+      [
+        23,
+        4
+      ],
+      [
+        3,
+        13
+      ],
+      [
+        11,
+        11
+      ],
+      [
+        15,
+        14
+      ],
+      [
+        23,
+        12
+      ]
+    ],
+    "milk": [
+      [
+        3,
+        8
+      ],
+      [
+        13,
+        4
+      ],
+      [
+        15,
+        8
+      ],
+      [
+        25,
+        4
+      ],
+      [
+        5,
+        13
+      ],
+      [
+        13,
+        11
+      ],
+      [
+        17,
+        14
+      ],
+      [
+        25,
+        12
+      ]
+    ],
+    "onions": [
+      [
+        5,
+        8
+      ],
+      [
+        11,
+        5
+      ],
+      [
+        17,
+        8
+      ],
+      [
+        23,
+        5
+      ],
+      [
+        3,
+        14
+      ],
+      [
+        11,
+        12
+      ],
+      [
+        19,
+        10
+      ],
+      [
+        23,
+        13
+      ]
+    ],
+    "lettuce": [
+      [
+        7,
+        2
+      ],
+      [
+        13,
+        5
+      ],
+      [
+        19,
+        2
+      ],
+      [
+        25,
+        5
+      ],
+      [
+        5,
+        14
+      ],
+      [
+        13,
+        12
+      ],
+      [
+        21,
+        10
+      ],
+      [
+        25,
+        13
+      ]
+    ],
+    "eggs": [
+      [
+        9,
+        2
+      ],
+      [
+        11,
+        6
+      ],
+      [
+        21,
+        2
+      ],
+      [
+        23,
+        6
+      ],
+      [
+        7,
+        10
+      ],
+      [
+        11,
+        13
+      ],
+      [
+        19,
+        11
+      ],
+      [
+        23,
+        14
+      ]
+    ],
+    "butter": [
+      [
+        7,
+        3
+      ],
+      [
+        13,
+        6
+      ],
+      [
+        19,
+        3
+      ],
+      [
+        25,
+        6
+      ],
+      [
+        9,
+        10
+      ],
+      [
+        13,
+        13
+      ],
+      [
+        21,
+        11
+      ],
+      [
+        25,
+        14
+      ]
+    ],
+    "cheese": [
+      [
+        9,
+        3
+      ],
+      [
+        11,
+        7
+      ],
+      [
+        21,
+        3
+      ],
+      [
+        23,
+        7
+      ],
+      [
+        7,
+        11
+      ],
+      [
+        11,
+        14
+      ],
+      [
+        19,
+        12
+      ]
+    ],
+    "cream": [
+      [
+        7,
+        4
+      ],
+      [
+        13,
+        7
+      ],
+      [
+        19,
+        4
+      ],
+      [
+        25,
+        7
+      ],
+      [
+        9,
+        11
+      ],
+      [
+        13,
+        14
+      ],
+      [
+        21,
+        12
+      ]
+    ],
+    "apples": [
+      [
+        9,
+        4
+      ],
+      [
+        11,
+        8
+      ],
+      [
+        21,
+        4
+      ],
+      [
+        23,
+        8
+      ],
+      [
+        7,
+        12
+      ],
+      [
+        15,
+        10
+      ],
+      [
+        19,
+        13
+      ]
+    ],
+    "peppers": [
+      [
+        7,
+        5
+      ],
+      [
+        13,
+        8
+      ],
+      [
+        19,
+        5
+      ],
+      [
+        25,
+        8
+      ],
+      [
+        9,
+        12
+      ],
+      [
+        17,
+        10
+      ],
+      [
+        21,
+        13
+      ]
+    ]
+  },
+  "bot_count": 20,
+  "bot_start_positions": [
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      28,
+      16
+    ]
+  ],
+  "order_sequence": [
+    {
+      "id": "order_0",
+      "items_required": [
+        "flour",
+        "tomatoes",
+        "onions",
+        "carrots",
+        "butter",
+        "juice",
+        "onions"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "active",
+      "activated_round": 0,
+      "completed_round": null
+    },
+    {
+      "id": "order_1",
+      "items_required": [
+        "milk",
+        "peppers",
+        "bread",
+        "butter",
+        "milk",
+        "bananas"
+      ],
+      "first_seen_round": 0,
+      "status_when_seen": "preview",
+      "activated_round": 74,
+      "completed_round": null
+    },
+    {
+      "id": "order_2",
+      "items_required": [
+        "cheese",
+        "cheese",
+        "rice",
+        "eggs",
+        "peppers",
+        "cheese",
+        "bread"
+      ],
+      "first_seen_round": 74,
+      "status_when_seen": "preview",
+      "activated_round": 89,
+      "completed_round": null
+    },
+    {
+      "id": "order_3",
+      "items_required": [
+        "pasta",
+        "flour",
+        "lettuce",
+        "bananas",
+        "pasta"
+      ],
+      "first_seen_round": 89,
+      "status_when_seen": "preview",
+      "activated_round": 109,
+      "completed_round": null
+    },
+    {
+      "id": "order_4",
+      "items_required": [
+        "cream",
+        "apples",
+        "onions",
+        "onions"
+      ],
+      "first_seen_round": 109,
+      "status_when_seen": "preview",
+      "activated_round": 134,
+      "completed_round": null
+    },
+    {
+      "id": "order_5",
+      "items_required": [
+        "juice",
+        "bread",
+        "rice",
+        "flour",
+        "tomatoes",
+        "lettuce"
+      ],
+      "first_seen_round": 134,
+      "status_when_seen": "preview",
+      "activated_round": 139,
+      "completed_round": null
+    },
+    {
+      "id": "order_6",
+      "items_required": [
+        "eggs",
+        "milk",
+        "sugar",
+        "cheese",
+        "bananas"
+      ],
+      "first_seen_round": 139,
+      "status_when_seen": "preview",
+      "activated_round": 156,
+      "completed_round": null
+    },
+    {
+      "id": "order_7",
+      "items_required": [
+        "bananas",
+        "cream",
+        "butter",
+        "milk",
+        "pasta",
+        "juice",
+        "cream"
+      ],
+      "first_seen_round": 156,
+      "status_when_seen": "preview",
+      "activated_round": 169,
+      "completed_round": null
+    },
+    {
+      "id": "order_8",
+      "items_required": [
+        "cereal",
+        "pasta",
+        "butter",
+        "cream",
+        "milk",
+        "eggs"
+      ],
+      "first_seen_round": 169,
+      "status_when_seen": "preview",
+      "activated_round": 183,
+      "completed_round": null
+    },
+    {
+      "id": "order_9",
+      "items_required": [
+        "peppers",
+        "bread",
+        "butter",
+        "bread"
+      ],
+      "first_seen_round": 183,
+      "status_when_seen": "preview",
+      "activated_round": 199,
+      "completed_round": null
+    },
+    {
+      "id": "order_10",
+      "items_required": [
+        "tomatoes",
+        "milk",
+        "onions",
+        "milk",
+        "bananas",
+        "yogurt"
+      ],
+      "first_seen_round": 199,
+      "status_when_seen": "preview",
+      "activated_round": 221,
+      "completed_round": null
+    },
+    {
+      "id": "order_11",
+      "items_required": [
+        "apples",
+        "yogurt",
+        "peppers",
+        "eggs"
+      ],
+      "first_seen_round": 221,
+      "status_when_seen": "preview",
+      "activated_round": 234,
+      "completed_round": null
+    },
+    {
+      "id": "order_12",
+      "items_required": [
+        "oats",
+        "yogurt",
+        "tomatoes",
+        "bread",
+        "flour",
+        "cream",
+        "rice"
+      ],
+      "first_seen_round": 234,
+      "status_when_seen": "preview",
+      "activated_round": 243,
+      "completed_round": null
+    },
+    {
+      "id": "order_13",
+      "items_required": [
+        "sugar",
+        "sugar",
+        "tomatoes",
+        "cheese",
+        "peppers"
+      ],
+      "first_seen_round": 243,
+      "status_when_seen": "preview",
+      "activated_round": 259,
+      "completed_round": null
+    },
+    {
+      "id": "order_14",
+      "items_required": [
+        "sugar",
+        "onions",
+        "oats",
+        "flour",
+        "pasta"
+      ],
+      "first_seen_round": 259,
+      "status_when_seen": "preview",
+      "activated_round": 279,
+      "completed_round": null
+    },
+    {
+      "id": "order_15",
+      "items_required": [
+        "oats",
+        "lettuce",
+        "rice",
+        "oats",
+        "eggs",
+        "cereal"
+      ],
+      "first_seen_round": 279,
+      "status_when_seen": "preview",
+      "activated_round": 288,
+      "completed_round": null
+    },
+    {
+      "id": "order_16",
+      "items_required": [
+        "cream",
+        "butter",
+        "carrots",
+        "juice",
+        "bread",
+        "apples"
+      ],
+      "first_seen_round": 288,
+      "status_when_seen": "preview",
+      "activated_round": 312,
+      "completed_round": null
+    },
+    {
+      "id": "order_17",
+      "items_required": [
+        "cereal",
+        "bananas",
+        "carrots",
+        "yogurt",
+        "sugar"
+      ],
+      "first_seen_round": 312,
+      "status_when_seen": "preview",
+      "activated_round": 322,
+      "completed_round": null
+    },
+    {
+      "id": "order_18",
+      "items_required": [
+        "eggs",
+        "bananas",
+        "cereal",
+        "oats",
+        "bananas",
+        "tomatoes",
+        "butter"
+      ],
+      "first_seen_round": 322,
+      "status_when_seen": "preview",
+      "activated_round": 338,
+      "completed_round": null
+    },
+    {
+      "id": "order_19",
+      "items_required": [
+        "pasta",
+        "cream",
+        "rice",
+        "cheese",
+        "juice"
+      ],
+      "first_seen_round": 338,
+      "status_when_seen": "preview",
+      "activated_round": 355,
+      "completed_round": null
+    },
+    {
+      "id": "order_20",
+      "items_required": [
+        "onions",
+        "pasta",
+        "cream",
+        "apples",
+        "sugar"
+      ],
+      "first_seen_round": 355,
+      "status_when_seen": "preview",
+      "activated_round": 374,
+      "completed_round": null
+    },
+    {
+      "id": "order_21",
+      "items_required": [
+        "carrots",
+        "sugar",
+        "milk",
+        "lettuce"
+      ],
+      "first_seen_round": 374,
+      "status_when_seen": "preview",
+      "activated_round": 385,
+      "completed_round": null
+    },
+    {
+      "id": "order_22",
+      "items_required": [
+        "cheese",
+        "carrots",
+        "cream",
+        "butter",
+        "tomatoes"
+      ],
+      "first_seen_round": 385,
+      "status_when_seen": "preview",
+      "activated_round": 396,
+      "completed_round": null
+    },
+    {
+      "id": "order_23",
+      "items_required": [
+        "flour",
+        "sugar",
+        "pasta",
+        "flour",
+        "flour",
+        "cream",
+        "lettuce"
+      ],
+      "first_seen_round": 396,
+      "status_when_seen": "preview",
+      "activated_round": 410,
+      "completed_round": null
+    },
+    {
+      "id": "order_24",
+      "items_required": [
+        "butter",
+        "bread",
+        "flour",
+        "cheese",
+        "tomatoes",
+        "tomatoes"
+      ],
+      "first_seen_round": 410,
+      "status_when_seen": "preview",
+      "activated_round": 420,
+      "completed_round": null
+    },
+    {
+      "id": "order_25",
+      "items_required": [
+        "carrots",
+        "bananas",
+        "flour",
+        "sugar",
+        "cheese"
+      ],
+      "first_seen_round": 420,
+      "status_when_seen": "preview",
+      "activated_round": 446,
+      "completed_round": null
+    },
+    {
+      "id": "order_26",
+      "items_required": [
+        "eggs",
+        "eggs",
+        "cheese",
+        "juice",
+        "milk",
+        "bananas",
+        "pasta"
+      ],
+      "first_seen_round": 446,
+      "status_when_seen": "preview",
+      "activated_round": 465,
+      "completed_round": null
+    },
+    {
+      "id": "order_27",
+      "items_required": [
+        "yogurt",
+        "juice",
+        "cheese",
+        "juice",
+        "oats",
+        "yogurt",
+        "cereal"
+      ],
+      "first_seen_round": 465,
+      "status_when_seen": "preview",
+      "activated_round": 474,
+      "completed_round": null
+    },
+    {
+      "id": "order_28",
+      "items_required": [
+        "bread",
+        "apples",
+        "sugar",
+        "apples",
+        "lettuce",
+        "eggs",
+        "tomatoes"
+      ],
+      "first_seen_round": 474,
+      "status_when_seen": "preview",
+      "activated_round": null,
+      "completed_round": null
+    }
+  ],
+  "total_rounds": 500,
+  "final_score": 293
+}
