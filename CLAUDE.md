@@ -227,5 +227,26 @@ adapter.reset()                   # ready for next game
 - Token delivery system (wait at position): 92→49
 - Conveyor belt (merge active+preview) for 5+ bots: dead weight (based on sim bug)
 
+## Time-Space A* Planner (AKTIV UTVIKLING)
+
+### Status
+- `solver/planner_v2.py` — planlegger 39 ordrer i 291 runder (est 401+)
+- `solver/time_space.py` — A* med (x, y, timestep) state + reservation table
+- `solver/scripted_strategy.py` — spiller pre-computed plan i sim
+- **BUG**: sim score 1 — collision model mismatch
+- **FIX**: spawn stacking, ID-priority, pickup/dropoff timing
+
+### Validert workflow (FUNGERER)
+```bash
+py _capture_reactive.py <recon> <output> [config]  # capture BotAdapter plan
+py main.py --mapf <plan> --url "wss://..."          # replay live (381 score)
+```
+
+### Time-Space workflow (UNDER UTVIKLING)
+```bash
+py -m solver.planner_v2 --recon <recon>             # plan + validate i sim
+# Når score > 381: capture som MAPF plan og replay live
+```
+
 ## MCP documentation
 Challenge docs available via the `nmiai` MCP server. Use `search_docs` tool or read resources like `challenge://scoring` for game mechanics details.
