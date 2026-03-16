@@ -1528,29 +1528,9 @@ class V2TaskPlanner:
                                              list(preview_order.items_remaining),
                                              demand=demand)
             else:
-                # Extended pre-picking: use known future orders (N+2, N+3...)
-                # to pick items BEFORE orders activate. This eliminates slow
-                # orders caused by zero overlap with previous order.
-                future = self._get_future_order_types(n_ahead=5)
-                if future:
-                    # Combine all future types into one target set
-                    future_types: set[str] = set()
-                    future_list: list[str] = []
-                    for ts, il in future:
-                        future_types.update(ts)
-                        future_list.extend(il)
-                    if future_types:
-                        self._assign_targeted_pickup(bot, a, world, claimed_items,
-                                                     filling_types, future_types,
-                                                     future_list, demand=demand)
-                    else:
-                        self._assign_fill_pickup(bot, a, world, claimed_items,
-                                                all_inventory_types, filling_types,
-                                                active_need=remaining_types, demand=demand)
-                else:
-                    self._assign_fill_pickup(bot, a, world, claimed_items,
-                                            all_inventory_types, filling_types,
-                                            active_need=remaining_types, demand=demand)
+                self._assign_fill_pickup(bot, a, world, claimed_items,
+                                        all_inventory_types, filling_types,
+                                        active_need=remaining_types, demand=demand)
 
         # === PHASE 3: Stranded deliverers on drive lane ===
         for bot in state.bots:

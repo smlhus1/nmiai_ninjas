@@ -225,8 +225,11 @@ class Coordinator:
         if self._config and getattr(self._config, 'shelf_preference', None):
             planner._shelf_preference = self._config.shelf_preference
         # Inject order sequence for future-order pipeline staging
+        # NOTE: for >=20 bots, future orders in demand scoring HURTS (-13 s180).
+        # Only enable for <20 bots where it helps with _spread_idle_bots.
         if (self._config and getattr(self._config, 'order_sequence', None)
-                and hasattr(planner, 'set_future_orders') and not planner._future_orders):
+                and hasattr(planner, 'set_future_orders') and not planner._future_orders
+                and len(state.bots) < 20):
             planner.set_future_orders(self._config.order_sequence)
 
         # 7. Plan tasks
