@@ -119,6 +119,36 @@ else:
 - 500r / 6r = 83 ordrer × 11 score = 913 score (1.83/round)
 - Med 4 stages og tighter packing: ~4.5r/ordre → 111 ordrer → 1221 (2.44/round)
 
+## Fix-forsøk og resultater
+
+### Hva vi prøvde (ALLE forverret score):
+| Fix | s180 | total | Problem |
+|-----|------|-------|---------|
+| Baseline | 122 | 340 | — |
+| Stage → drop-off (alle N+2..N+8) | 98 | 364 | Congestion ved drop-off tidlig |
+| Stage → queue | 112 | 333 | Congestion ved queue |
+| Stay-put (safe idle) | 101 | 310 | Blokkerer one-way aisles |
+| d>8 threshold | 68 | 79 | Katastrofe |
+| N+2 only, R>60 | 97 | 321 | Fortsatt congestion |
+
+### Korreksjon av analyse:
+IDLE bots med matching items KONVERTERES allerede til DELIVER ved ordre-aktivering
+(Phase 1 i nightmare_queue_strategy). Koden fungerer korrekt!
+
+Det egentlige problemet: **transit-tid fra IDLE-posisjon til drop-off = 10-15 runder.**
+Pre-staging ville redusert dette til 2-3r, men ALL bevegelse av full-inventory bots
+skaper congestion i smale korridorer som forverrer scoren mer enn transit-besparelsen.
+
+### Catch-22:
+- IDLE bots langt fra drop-off → 10-15r transit per ordre (langsomt)
+- Flytte IDLE bots nærmere drop-off → congestion (verre)
+- Bots kan ikke bli kvitt dead-weight items (game har ingen "dump" action)
+
+### Reell løsning krever:
+1. **Ikke plukk dead-weight i første omgang** — unngå å fylle inventory med items som ikke trengs snart
+2. **Corridor-aware routing** — bots som stages tar ruter som UNNGÅR trafikkerte korridorer
+3. **Staggered staging** — flytt 2-3 bots per runde mot drop-off, ikke alle samtidig
+
 ## Preventivt tiltak
 - [ ] Legg til test: "IDLE bots med full inventory som matcher N+2..N+8 skal ALDRI forekomme"
 - [ ] Instrumenter pipeline-stage fordeling per runde (deliver/stage/pick/idle) for kontinuerlig monitoring

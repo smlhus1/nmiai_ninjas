@@ -224,6 +224,10 @@ class Coordinator:
         # Inject shelf preference from config into planner
         if self._config and getattr(self._config, 'shelf_preference', None):
             planner._shelf_preference = self._config.shelf_preference
+        # Inject order sequence for future-order pipeline staging
+        if (self._config and getattr(self._config, 'order_sequence', None)
+                and hasattr(planner, 'set_future_orders') and not planner._future_orders):
+            planner.set_future_orders(self._config.order_sequence)
 
         # 7. Plan tasks
         self._assignments = self._planner.plan(world, self._assignments)
