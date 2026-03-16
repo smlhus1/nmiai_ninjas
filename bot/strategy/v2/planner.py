@@ -1626,6 +1626,7 @@ class V2TaskPlanner:
                             shelf_bonus = 5
 
             demand_bonus = min(demand.get(item.type, 0), 3) if demand else 0
+
             score = (d + zone_penalty - demand_bonus - shelf_bonus, d)
             if score < best_score:
                 best_score = score
