@@ -274,6 +274,32 @@ class V2TaskPlanner:
 
         order = active[0]
         remaining_types = set(order.items_remaining)
+        remaining_count = len(order.items_remaining)
+
+        # Completion gate: when active order has <=2 items left and preview exists,
+        # hold back deliverers for a few rounds to let pre-pick bots fill up.
+        # This ensures order transition delivers pre-picked items via auto-delivery.
+        gate_delay = getattr(self._config, 'gate_max_delay', 0) if self._config else 0
+        gating = False
+        if (gate_delay > 0 and remaining_count <= 2 and remaining_count > 0
+                and state.preview_orders and len(state.bots) >= 5
+                and state.rounds_remaining > 40):
+            # Count how many preview items are already in inventories
+            preview_items = state.preview_orders[0].items_remaining
+            preview_in_inv = 0
+            for bot in state.bots:
+                for inv in bot.inventory:
+                    if inv in set(preview_items):
+                        preview_in_inv += 1
+            # Gate if preview isn't fully pre-picked yet
+            if preview_in_inv < len(preview_items) * 0.6:
+                held = getattr(self, '_gate_rounds_held', 0)
+                if held < gate_delay:
+                    gating = True
+                    self._gate_rounds_held = held + 1
+
+        if not gating:
+            self._gate_rounds_held = 0
 
         # Step 1: Bots with matching inventory should deliver
         # Skip bots on post-deliver cooldown (prevents EVICT pendling)
@@ -299,6 +325,12 @@ class V2TaskPlanner:
                     del self._post_deliver_cooldown[bot.id]
             matching = [inv for inv in bot.inventory if inv in remaining_types]
             if matching:
+                # Completion gate: hold back if gating (let pre-pick fill up)
+                if gating and remaining_count <= 1:
+                    a = assignments[bot.id]
+                    a.task = Task(task_type=TaskType.IDLE, target_pos=self._safe_idle_pos(bot.position, world))
+                    a.path = None
+                    continue
                 a = assignments[bot.id]
                 a.task = Task(task_type=TaskType.DELIVER, target_pos=world.nearest_drop_off(bot.position, bot.id))
                 a.path = None

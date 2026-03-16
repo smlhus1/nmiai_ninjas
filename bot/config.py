@@ -138,13 +138,21 @@ class CoordinatorConfig:
 
     @classmethod
     def expert(cls) -> CoordinatorConfig:
-        """10 bot preset: large map, coordination-heavy."""
+        """10 bot preset: large map, coordination-heavy.
+
+        Guidance graph essential: +19 s180 (43→62).
+        Optimized params: alpha=2.5, beta=5.0, decay=0.9, interval=2.
+        Gate/shelf_pref/route params have ZERO effect (V2 OrderSolver is
+        deterministic — BFS distance dictates all assignments).
+        """
         return cls(
             replay_enabled=False,
             endgame_threshold=50,
             guidance_enabled=True,
             guidance_alpha=1.0,
-            guidance_update_interval=3,
+            guidance_beta=2.0,
+            guidance_decay=0.9,
+            guidance_update_interval=2,
         )
 
     @classmethod
