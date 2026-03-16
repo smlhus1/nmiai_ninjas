@@ -232,6 +232,24 @@ class OrderSolver:
         _add_items_for(active_types_needed, False)
         _add_items_for(preview_types_needed, True)
 
+        # Sort active items: FARTHEST from drop-off FIRST.
+        # This ensures far items start traveling early while near items
+        # deliver quickly. Last remaining item should be the NEAREST shelf.
+        if active_count > 1:
+            active_items = items_to_assign[:active_count]
+            active_preview = is_preview_item[:active_count]
+            # Sort by distance to nearest drop-off (descending = farthest first)
+            def _dist_to_drop(item):
+                pp = self._cached_pickup(world, drop_off, item.position)
+                if pp is None:
+                    return 0
+                return self._cached_dist(world, pp, drop_off)
+            sorted_pairs = sorted(zip(active_items, active_preview),
+                                  key=lambda x: -_dist_to_drop(x[0]))
+            for i, (item, is_prev) in enumerate(sorted_pairs):
+                items_to_assign[i] = item
+                is_preview_item[i] = is_prev
+
         if not items_to_assign:
             return OrderPlan(
                 order_id=order.id,
