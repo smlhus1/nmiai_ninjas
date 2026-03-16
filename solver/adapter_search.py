@@ -117,8 +117,8 @@ def _crossover_individual(p1: dict, p2: dict) -> dict:
     return new
 
 
-def _eval_worker(args: tuple) -> tuple[int, int, int, dict]:
-    """Worker: run BotAdapter with individual. Returns (idx, score, orders, individual)."""
+def _eval_worker(args: tuple) -> tuple[int, int, int, int, dict]:
+    """Worker: run BotAdapter with individual. Returns (idx, score, orders, score_180, individual)."""
     idx, individual, recon_path = args
 
     from Simulering.offline.bot_adapter import BotAdapter
@@ -137,13 +137,22 @@ def _eval_worker(args: tuple) -> tuple[int, int, int, dict]:
     sim = Simulator.from_recon_file(recon_path)
 
     try:
-        result = sim.run(adapter)
-        score = result["score"]
-        orders = result["orders_completed"]
+        # Run manually to capture score@180
+        state = sim.reset()
+        score_180 = 0
+        for r in range(sim.max_rounds):
+            response = adapter(state.to_dict())
+            state, game_over = sim.step(response.get("actions", []))
+            if r == 179:
+                score_180 = sim._score
+            if game_over:
+                break
+        score = sim._score
+        orders = sim._orders_completed
     except Exception:
-        score, orders = 0, 0
+        score, orders, score_180 = 0, 0, 0
 
-    return idx, score, orders, individual
+    return idx, score, orders, score_180, individual
 
 
 def evolve_adapter(
@@ -201,17 +210,22 @@ def evolve_adapter(
             results = pool.map(_eval_worker, args)
 
         scores = [0] * pop_size
+        scores_180 = [0] * pop_size
         fitness = [0.0] * pop_size
         inds = [{}] * pop_size
-        for idx, score, orders, ind in results:
+        for idx, score, orders, score_180, ind in results:
             scores[idx] = score
-            fitness[idx] = orders * 100 + score  # More orders always wins
+            scores_180[idx] = score_180
+            # VELOCITY FITNESS: score@180 is king, total score breaks ties
+            fitness[idx] = score_180 * 10 + score
             inds[idx] = ind
 
         ranked = sorted(range(pop_size), key=lambda i: -fitness[i])
         gen_best_score = scores[ranked[0]]
+        gen_best_s180 = scores_180[ranked[0]]
         gen_best_fitness = fitness[ranked[0]]
         gen_avg = sum(scores) / len(scores)
+        gen_avg_180 = sum(scores_180) / len(scores_180)
 
         if gen_best_fitness > best_fitness:
             best_fitness = gen_best_fitness
@@ -219,9 +233,9 @@ def evolve_adapter(
             best_ind = inds[ranked[0]]
             Path("logs/best_individual.json").write_text(json.dumps(best_ind, indent=2))
             cfg = best_ind.get("config", {})
-            print(f"Gen {gen:3d}: NEW BEST score={best_score} (avg={gen_avg:.0f}) cfg={cfg} ***", flush=True)
+            print(f"Gen {gen:3d}: NEW BEST s180={gen_best_s180} total={best_score} (avg180={gen_avg_180:.0f} avg={gen_avg:.0f}) cfg={cfg} ***", flush=True)
         elif gen % 3 == 0:
-            print(f"Gen {gen:3d}: best={best_score}, avg={gen_avg:.0f}", flush=True)
+            print(f"Gen {gen:3d}: best_s180={gen_best_s180} total={gen_best_score}, avg180={gen_avg_180:.0f}", flush=True)
 
         # Selection: top 20%
         elite_count = max(2, pop_size // 5)

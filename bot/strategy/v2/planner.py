@@ -968,54 +968,81 @@ class V2TaskPlanner:
                 if a.task.target_pos:
                     targeted.add(a.task.target_pos)
 
-        # Strategy: use future order knowledge to find staging positions
+        # Strategy: use future order knowledge to send idle bots to PRE_PICK
+        # items from N+2, N+3 orders. When those orders activate, items are
+        # already in inventory → instant delivery instead of 20-round cycle.
         future_orders = self._get_future_order_types(n_ahead=5)
-        staging_positions: list[Pos] = []
 
+        # Build list of (item_type, item_obj, pickup_pos) for future orders
+        future_pickups: list[tuple[str, object, Pos]] = []
         if future_orders:
-            # Build pickup positions for future order items
+            claimed_types: Counter = Counter()
+            # Count what's already being picked/pre-picked
+            for bot in state.bots:
+                a = assignments.get(bot.id)
+                if a and a.has_task and a.task.task_type in (TaskType.PICK_UP, TaskType.PRE_PICK):
+                    if a.task.item_type:
+                        claimed_types[a.task.item_type] += 1
+            # Count inventory across all bots
+            for bot in state.bots:
+                for t in bot.inventory:
+                    claimed_types[t] += 1
+
             for type_set, items_list in future_orders:
-                for item_type in set(items_list):
-                    # Find items of this type on the map
+                need = Counter(items_list)
+                for item_type, count in need.items():
+                    # How many more do we need beyond what's claimed?
+                    extra_needed = count - claimed_types.get(item_type, 0)
+                    if extra_needed <= 0:
+                        continue
+                    # Find items on map to pick
                     for item in state.items:
                         if item.type != item_type:
                             continue
-                        # Find best walkable adjacent cell (pickup position)
+                        if item.id in self._claimed_items:
+                            continue
                         pickup = world.best_pickup_position(item.position, item.position)
                         if pickup and pickup not in targeted and pickup not in occupied:
-                            staging_positions.append(pickup)
+                            future_pickups.append((item_type, item, pickup))
+                            targeted.add(pickup)
+                            claimed_types[item_type] += 1
+                            extra_needed -= 1
+                            if extra_needed <= 0:
+                                break
 
-        # Deduplicate while preserving order (closer orders first)
-        seen: set[Pos] = set()
-        unique_staging: list[Pos] = []
-        for pos in staging_positions:
-            if pos not in seen:
-                seen.add(pos)
-                unique_staging.append(pos)
-
-        # Assign idle bots: nearest bot to nearest staging position
+        # Assign idle bots to PRE_PICK future items
         assigned_targets: set[Pos] = set()
         for bot_id in idle_bots:
             bot = state.get_bot(bot_id)
-            if bot is None:
+            if bot is None or len(bot.inventory) >= 3:
                 continue
 
-            best_pos = None
+            best_pickup = None
             best_dist = float('inf')
-            for pos in unique_staging:
-                if pos in assigned_targets:
+            best_idx = -1
+            for idx, (item_type, item_obj, pickup_pos) in enumerate(future_pickups):
+                if pickup_pos in assigned_targets:
                     continue
-                d = world.distance(bot.position, pos)
+                d = world.distance(bot.position, pickup_pos)
                 if d < best_dist and d < 9999:
                     best_dist = d
-                    best_pos = pos
+                    best_pickup = (item_type, item_obj, pickup_pos)
+                    best_idx = idx
 
-            if best_pos:
+            if best_pickup:
+                item_type, item_obj, pickup_pos = best_pickup
                 a = assignments[bot_id]
-                a.task = Task(task_type=TaskType.IDLE, target_pos=best_pos)
+                a.task = Task(
+                    task_type=TaskType.PRE_PICK,
+                    target_pos=pickup_pos,
+                    item_id=item_obj.id,
+                    item_type=item_type,
+                    item_pos=item_obj.position,
+                )
                 a.path = None
-                assigned_targets.add(best_pos)
-                occupied.add(best_pos)
+                assigned_targets.add(pickup_pos)
+                occupied.add(pickup_pos)
+                self._claimed_items.add(item_obj.id)
 
     @staticmethod
     def _find_deadweight_parking(
@@ -1469,9 +1496,29 @@ class V2TaskPlanner:
                                              list(preview_order.items_remaining),
                                              demand=demand)
             else:
-                self._assign_fill_pickup(bot, a, world, claimed_items,
-                                        all_inventory_types, filling_types,
-                                        active_need=remaining_types, demand=demand)
+                # Extended pre-picking: use known future orders (N+2, N+3...)
+                # to pick items BEFORE orders activate. This eliminates slow
+                # orders caused by zero overlap with previous order.
+                future = self._get_future_order_types(n_ahead=5)
+                if future:
+                    # Combine all future types into one target set
+                    future_types: set[str] = set()
+                    future_list: list[str] = []
+                    for ts, il in future:
+                        future_types.update(ts)
+                        future_list.extend(il)
+                    if future_types:
+                        self._assign_targeted_pickup(bot, a, world, claimed_items,
+                                                     filling_types, future_types,
+                                                     future_list, demand=demand)
+                    else:
+                        self._assign_fill_pickup(bot, a, world, claimed_items,
+                                                all_inventory_types, filling_types,
+                                                active_need=remaining_types, demand=demand)
+                else:
+                    self._assign_fill_pickup(bot, a, world, claimed_items,
+                                            all_inventory_types, filling_types,
+                                            active_need=remaining_types, demand=demand)
 
         # === PHASE 3: Stranded deliverers on drive lane ===
         for bot in state.bots:

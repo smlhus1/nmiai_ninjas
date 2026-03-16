@@ -99,6 +99,10 @@ class CoordinatorConfig:
     # Used by evolutionary search to override nearest-item selection
     shelf_preference: dict = None
 
+    # Known order sequence from recon — enables extended pre-picking (N+2, N+3)
+    # List of order dicts with "items_required" field
+    order_sequence: list = None
+
     @classmethod
     def for_difficulty(cls, n_bots: int) -> CoordinatorConfig:
         """Auto-select config preset based on bot count."""
