@@ -47,6 +47,17 @@ class MAPFExecutor:
     def fallback_active(self) -> bool:
         return self._fallback_active
 
+    @property
+    def plan_exhausted(self) -> bool:
+        """True when all bots have finished their planned actions."""
+        if not self._plan.actions:
+            return True
+        for bot_id, actions in self._plan.actions.items():
+            cursor = self._bot_cursor.get(bot_id, 0)
+            if cursor < len(actions):
+                return False
+        return True
+
     def on_game_state(self, raw: dict) -> dict:
         round_num = raw.get("round", self._round)
         self._round = round_num

@@ -1986,23 +1986,10 @@
       ],
       "first_seen_round": 486,
       "status_when_seen": "preview",
-      "activated_round": 496,
-      "completed_round": null
-    },
-    {
-      "id": "order_39",
-      "items_required": [
-        "butter",
-        "eggs",
-        "juice",
-        "cereal"
-      ],
-      "first_seen_round": 496,
-      "status_when_seen": "preview",
       "activated_round": null,
       "completed_round": null
     }
   ],
   "total_rounds": 500,
-  "final_score": 393
+  "final_score": 384
 }

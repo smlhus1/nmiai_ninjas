@@ -1,0 +1,36 @@
+{
+  "shelf_pref": {
+    "bread": 1,
+    "flour": 1,
+    "onions": 1,
+    "yogurt": 3,
+    "peppers": 2,
+    "pasta": 5,
+    "bananas": 6,
+    "juice": 2,
+    "lettuce": 0,
+    "butter": 1,
+    "cream": 2,
+    "tomatoes": 0,
+    "sugar": 7,
+    "cheese": 4,
+    "oats": 6,
+    "rice": 4,
+    "eggs": 2,
+    "milk": 6,
+    "carrots": 2,
+    "apples": 4,
+    "cereal": 3
+  },
+  "config": {
+    "guidance_alpha": 2.0,
+    "guidance_beta": 2.0,
+    "guidance_decay": 0.5,
+    "stuck_transit_rounds": 3,
+    "stuck_pick_rounds": 5,
+    "stuck_deliver_rounds": 3,
+    "endgame_threshold": 60,
+    "gate_max_delay": 0,
+    "pre_pick_rush_remaining": 6
+  }
+}

@@ -24,16 +24,15 @@ from solver.genome import Genome, generate_genome
 from solver.genome_strategy import run_genome
 
 
-def evaluate_genome(args: tuple) -> tuple[int, int, int]:
-    """Worker function for multiprocessing. Returns (genome_idx, score, orders)."""
+def evaluate_genome(args: tuple) -> tuple[int, int, int, int, int]:
+    """Worker function. Returns (genome_idx, score, orders, rounds, mid_score)."""
     idx, genome_dict, recon_path = args
-    # Reconstruct genome from dict (can't pickle complex objects)
     genome = _genome_from_dict(genome_dict)
     try:
-        score, orders = run_genome(recon_path, genome)
+        score, orders, rounds, mid_score = run_genome(recon_path, genome)
     except Exception:
-        score, orders = 0, 0
-    return idx, score, orders
+        score, orders, rounds, mid_score = 0, 0, 500, 0
+    return idx, score, orders, rounds, mid_score
 
 
 def _genome_to_dict(g: Genome) -> dict:
@@ -43,7 +42,15 @@ def _genome_to_dict(g: Genome) -> dict:
             [{"item_type": a.item_type, "shelf_index": a.shelf_index, "bot_id": a.bot_id}
              for a in o.assignments]
             for o in g.orders
-        ]
+        ],
+        "guidance_alpha": g.guidance_alpha,
+        "guidance_beta": g.guidance_beta,
+        "guidance_decay": g.guidance_decay,
+        "dropoff_load_factor": g.dropoff_load_factor,
+        "max_deliverers": g.max_deliverers,
+        "sprint_team_size": g.sprint_team_size,
+        "max_deliverers_per_zone": g.max_deliverers_per_zone,
+        "preposition_rounds": g.preposition_rounds,
     }
 
 
@@ -60,6 +67,15 @@ def _genome_from_dict(d: dict) -> Genome:
                 bot_id=a["bot_id"],
             ))
         genome.orders.append(oa)
+    # Restore routing params
+    genome.guidance_alpha = d.get("guidance_alpha", 2.0)
+    genome.guidance_beta = d.get("guidance_beta", 3.0)
+    genome.guidance_decay = d.get("guidance_decay", 0.7)
+    genome.dropoff_load_factor = d.get("dropoff_load_factor", 5)
+    genome.max_deliverers = d.get("max_deliverers", 0)
+    genome.sprint_team_size = d.get("sprint_team_size", 0)
+    genome.max_deliverers_per_zone = d.get("max_deliverers_per_zone", 2)
+    genome.preposition_rounds = d.get("preposition_rounds", 5)
     return genome
 
 
@@ -96,9 +112,11 @@ def evolve(
         population.append(g)
 
     best_score = 0
+    best_fitness = 0.0
     best_genome = None
 
     print(f"Starting evolution: pop={pop_size}, gens={generations}, workers={n_workers}", flush=True)
+    print(f"Fitness: velocity mode (score * 500 / rounds_used)", flush=True)
 
     for gen in range(generations):
         # Evaluate all genomes in parallel
@@ -107,26 +125,34 @@ def evolve(
         with Pool(n_workers) as pool:
             results = pool.map(evaluate_genome, args)
 
-        # Collect scores
+        # Collect scores and fitness
+        # Velocity fitness: mid_score (at round 250) + total score
+        # This rewards genomes that complete orders FAST (high mid_score)
+        # while still maximizing total output
         scores = [0] * pop_size
-        for idx, score, orders in results:
+        fitness = [0.0] * pop_size
+        for idx, score, orders, rounds, mid_score in results:
             scores[idx] = score
+            # Weight mid-game score heavily: fast completion = more orders in live
+            fitness[idx] = mid_score * 2 + score
 
-        # Sort by score
-        ranked = sorted(range(pop_size), key=lambda i: -scores[i])
+        # Sort by FITNESS (velocity), not raw score
+        ranked = sorted(range(pop_size), key=lambda i: -fitness[i])
 
-        gen_best = scores[ranked[0]]
+        gen_best_score = scores[ranked[0]]
+        gen_best_fitness = fitness[ranked[0]]
         gen_avg = sum(scores) / len(scores)
 
-        if gen_best > best_score:
-            best_score = gen_best
+        if gen_best_fitness > best_fitness:
+            best_fitness = gen_best_fitness
+            best_score = gen_best_score
             best_genome = copy.deepcopy(population[ranked[0]])
             # Save
             Path("logs/best_genome.json").write_text(
                 json.dumps(_genome_to_dict(best_genome), indent=None))
-            print(f"Gen {gen:3d}: NEW BEST {best_score} (avg={gen_avg:.0f}) ***", flush=True)
+            print(f"Gen {gen:3d}: NEW BEST score={best_score} fitness={best_fitness:.0f} (avg={gen_avg:.0f}) ***", flush=True)
         elif gen % 5 == 0:
-            print(f"Gen {gen:3d}: best={best_score}, gen_best={gen_best}, avg={gen_avg:.0f}", flush=True)
+            print(f"Gen {gen:3d}: best={best_score}, gen_best={gen_best_score}, avg={gen_avg:.0f}", flush=True)
 
         # Selection: keep top 20%
         elite_count = max(2, pop_size // 5)
@@ -155,7 +181,7 @@ def evolve(
 
         population = new_pop[:pop_size]
 
-    print(f"\n=== BEST: {best_score} ===", flush=True)
+    print(f"\n=== BEST: score={best_score}, fitness={best_fitness:.0f} ===", flush=True)
     return best_genome, best_score
 
 

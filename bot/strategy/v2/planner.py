@@ -49,6 +49,9 @@ class V2TaskPlanner:
         # Spawn dispersal: pre-computed scatter targets for spawn-stacked bots
         self._scatter_targets: dict[int, Pos] = {}  # bot_id -> scatter position
         self._scatter_spawn: Pos | None = None  # detected spawn position
+        # Genome shelf preference: item_type -> preferred shelf position index
+        # Overrides nearest-item selection when set. Used by evolutionary search.
+        self._shelf_preference: dict[str, int] = {}  # item_type -> shelf_index
 
     def set_future_orders(self, order_sequence: list[dict]) -> None:
         """Set the full order sequence from recon data for future knowledge."""
@@ -1547,8 +1550,21 @@ class V2TaskPlanner:
                 if ix < zone_x_range[0] or ix > zone_x_range[1]:
                     zone_penalty = 10
 
+            # Genome shelf preference: bonus for preferred shelf position
+            shelf_bonus = 0
+            if self._shelf_preference and item.type in self._shelf_preference:
+                pref_idx = self._shelf_preference[item.type]
+                # Match shelf by position — items at preferred shelf get -5 distance bonus
+                shelf_map = getattr(self._config, '_shelf_map', None)
+                if shelf_map and item.type in shelf_map:
+                    shelves_list = shelf_map[item.type]
+                    if pref_idx < len(shelves_list):
+                        pref_pos = tuple(shelves_list[pref_idx])
+                        if item.position == pref_pos:
+                            shelf_bonus = 5
+
             demand_bonus = min(demand.get(item.type, 0), 3) if demand else 0
-            score = (d + zone_penalty - demand_bonus, d)
+            score = (d + zone_penalty - demand_bonus - shelf_bonus, d)
             if score < best_score:
                 best_score = score
                 best_task = Task(
@@ -1644,7 +1660,20 @@ class V2TaskPlanner:
 
             # Demand bonus: high-demand items get up to 2 cells virtual distance reduction
             demand_bonus = min(demand.get(item.type, 0), 2) if demand else 0
-            score = (priority, d - demand_bonus)
+
+            # Genome shelf preference bonus
+            shelf_bonus = 0
+            if self._shelf_preference and item.type in self._shelf_preference:
+                pref_idx = self._shelf_preference[item.type]
+                shelf_map = getattr(self._config, '_shelf_map', None)
+                if shelf_map and item.type in shelf_map:
+                    shelves_list = shelf_map[item.type]
+                    if pref_idx < len(shelves_list):
+                        pref_pos = tuple(shelves_list[pref_idx])
+                        if item.position == pref_pos:
+                            shelf_bonus = 5
+
+            score = (priority, d - demand_bonus - shelf_bonus)
             if score < best_score:
                 best_score = score
                 best_task = Task(

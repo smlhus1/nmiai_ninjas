@@ -35,10 +35,14 @@ class ScriptedStrategy:
 
             entry = {"bot": bid, "action": action}
 
-            # Resolve item_id for pick_up
-            if action == "pick_up":
+            # Resolve item_id for pick_up (supports "pick_up:item_type" format)
+            if action.startswith("pick_up"):
+                item_type = None
+                if ":" in action:
+                    item_type = action.split(":", 1)[1]
+                    entry["action"] = "pick_up"
                 bot_pos = tuple(bot["position"])
-                item_id = self._find_adjacent_item(bot_pos, items)
+                item_id = self._find_adjacent_item(bot_pos, items, item_type)
                 if item_id:
                     entry["item_id"] = item_id
                 else:
@@ -49,13 +53,14 @@ class ScriptedStrategy:
         return {"actions": actions}
 
     @staticmethod
-    def _find_adjacent_item(bot_pos: tuple, items: list) -> str | None:
-        """Find any item adjacent to bot position."""
+    def _find_adjacent_item(bot_pos: tuple, items: list, item_type: str = None) -> str | None:
+        """Find item adjacent to bot position, optionally matching type."""
         bx, by = bot_pos
         for item in items:
             ix, iy = item["position"]
-            if abs(bx - ix) + abs(by - iy) == 1:
-                return item["id"]
+            if abs(bx - ix) + abs(by - iy) <= 1:
+                if item_type is None or item.get("type") == item_type:
+                    return item["id"]
         return None
 
 

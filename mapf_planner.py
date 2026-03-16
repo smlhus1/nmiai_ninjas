@@ -124,6 +124,9 @@ class SequentialMAPFPlanner:
             bot_actions, pickup_schedule, dropoff_schedule = self._simulate(
                 waypoint_queues, order_activations,
             )
+        elif method == "hybrid":
+            # Hybrid: theoretical max trips + reactive PIBT execution
+            bot_actions, pickup_schedule, dropoff_schedule = self._simulate_hybrid(trips)
         else:
             # Reactive strategy (no theoretical max)
             bot_actions, pickup_schedule, dropoff_schedule = self._simulate_reactive()
@@ -150,14 +153,372 @@ class SequentialMAPFPlanner:
               f"score {expected_score}, {elapsed:.1f}s")
         return plan
 
+    def _simulate_hybrid(
+        self,
+        trips: list[tuple[int, 'BotTrip']],
+    ) -> tuple[dict[int, list[MAPFAction]], list[dict], list[dict]]:
+        """Hybrid: use theoretical_max trip assignments + reactive PIBT execution.
+
+        Takes pre-planned trips (optimal item-to-bot assignment with multi-item routes),
+        and executes them with PIBT collision avoidance. Falls back to reactive assignment
+        for any items not covered by trips.
+        """
+        from bot.engine.pibt import PIBTResolver
+
+        orders = self._export["order_items"]
+        shelf_lookup = self._export["shelf_lookup"]
+
+        pibt = PIBTResolver(
+            grid=self._grid,
+            distance_fn=self._engine.distance,
+            one_way=getattr(self._engine, '_one_way', None),
+        )
+
+        bot_pos: dict[int, Pos] = {i: self._spawn_pos for i in range(self._n_bots)}
+        bot_inventory: dict[int, list[str]] = {i: [] for i in range(self._n_bots)}
+        bot_actions: dict[int, list[MAPFAction]] = {i: [] for i in range(self._n_bots)}
+        pickup_schedule: list[dict] = []
+        dropoff_schedule: list[dict] = []
+
+        n_orders = len(orders)
+        active_order_idx = 0
+        order_items_remaining: dict[int, list[str]] = {
+            idx: list(items) for idx, items in orders.items()
+        }
+        score = 0
+
+        # Build trip queues per bot: list of (order_idx, pickups, items, drop_off)
+        bot_trips: dict[int, list[tuple[int, list[Pos], list[str], Pos]]] = {
+            i: [] for i in range(self._n_bots)
+        }
+        for order_idx, trip in trips:
+            bot_trips[trip.bot_id].append((
+                order_idx,
+                list(trip.pickup_positions),
+                list(trip.items),
+                trip.drop_off,
+            ))
+        # Sort by order_idx, then start_round
+        for bid in range(self._n_bots):
+            bot_trips[bid].sort(key=lambda x: x[0])
+
+        # Current trip state per bot
+        bot_trip_cursor: dict[int, int] = {i: 0 for i in range(self._n_bots)}
+        bot_task: dict[int, str] = {i: "idle" for i in range(self._n_bots)}
+        bot_target: dict[int, Pos | None] = {i: None for i in range(self._n_bots)}
+        bot_target_type: dict[int, str] = {i: "" for i in range(self._n_bots)}
+        bot_target_order: dict[int, int] = {i: -1 for i in range(self._n_bots)}
+        bot_pickup_idx: dict[int, int] = {i: 0 for i in range(self._n_bots)}  # within current trip
+
+        # Stuck detection
+        bot_pos_history: dict[int, list[Pos]] = {i: [] for i in range(self._n_bots)}
+        STUCK_THRESHOLD = 5
+
+        # Grid dimensions and idle positions
+        grid_w = self._grid.width
+        grid_h = self._grid.height
+        _idle_positions: list[Pos] = []
+        for y in [grid_h // 4, grid_h // 2, 3 * grid_h // 4]:
+            for x in [grid_w // 4, grid_w // 2, 3 * grid_w // 4]:
+                if self._grid.is_walkable((x, y)):
+                    _idle_positions.append((x, y))
+        if not _idle_positions:
+            _idle_positions = [self._spawn_pos]
+
+        _dropoff_set = set(self._drop_off_zones)
+        _dropoff_adjacent: set[Pos] = set()
+        for dz in self._drop_off_zones:
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                adj = (dz[0] + dx, dz[1] + dy)
+                if 0 <= adj[0] < grid_w and 0 <= adj[1] < grid_h:
+                    _dropoff_adjacent.add(adj)
+
+        def _nearest_dropoff(pos: Pos) -> Pos:
+            best = self._drop_off_zones[0]
+            best_d = self._engine.distance(pos, best)
+            for z in self._drop_off_zones[1:]:
+                d = self._engine.distance(pos, z)
+                if d < best_d:
+                    best, best_d = z, d
+            return best
+
+        def _assign_from_trips():
+            """Assign tasks from pre-planned trips."""
+            for bid in range(self._n_bots):
+                if bot_task[bid] != "idle":
+                    continue
+                cursor = bot_trip_cursor[bid]
+                if cursor >= len(bot_trips[bid]):
+                    continue
+                order_idx, pickups, items, drop_off = bot_trips[bid][cursor]
+
+                # Only start trips for active order (pre-pick handled separately)
+                if order_idx > active_order_idx:
+                    continue
+
+                # Start this trip
+                if bot_pickup_idx[bid] < len(pickups):
+                    # Still have pickups to do
+                    pi = bot_pickup_idx[bid]
+                    if len(bot_inventory[bid]) >= 3:
+                        # Full inventory — need to deliver first
+                        remaining = order_items_remaining.get(active_order_idx, [])
+                        has_match = any(item in remaining for item in bot_inventory[bid])
+                        if has_match:
+                            bot_task[bid] = "deliver"
+                            bot_target[bid] = _nearest_dropoff(bot_pos[bid])
+                        continue
+
+                    bot_task[bid] = "pick" if order_idx <= active_order_idx else "pre_pick"
+                    bot_target[bid] = pickups[pi]
+                    bot_target_type[bid] = items[pi] if pi < len(items) else ""
+                    bot_target_order[bid] = order_idx
+                else:
+                    # All pickups done — deliver
+                    remaining = order_items_remaining.get(active_order_idx, [])
+                    has_match = any(item in remaining for item in bot_inventory[bid])
+                    if has_match:
+                        bot_task[bid] = "deliver"
+                        bot_target[bid] = drop_off
+                        bot_target_order[bid] = order_idx
+                    else:
+                        # Items don't match active order — hold and wait
+                        pass
+
+            # Also: idle bots with matching inventory → deliver
+            for bid in range(self._n_bots):
+                if bot_task[bid] != "idle" or not bot_inventory[bid]:
+                    continue
+                remaining = order_items_remaining.get(active_order_idx, [])
+                if any(item in remaining for item in bot_inventory[bid]):
+                    bot_task[bid] = "deliver"
+                    bot_target[bid] = _nearest_dropoff(bot_pos[bid])
+
+        for round_t in range(self._max_rounds):
+            if active_order_idx >= n_orders:
+                break
+
+            if round_t % 50 == 0 or round_t < 5:
+                n_idle = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "idle")
+                n_pick = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "pick")
+                n_deliv = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "deliver")
+                n_pre = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "pre_pick")
+                remaining_count = len(order_items_remaining.get(active_order_idx, []))
+                print(f"  Round {round_t}: order={active_order_idx}, "
+                      f"score={score}, pick/deliv/pre/idle={n_pick}/{n_deliv}/{n_pre}/{n_idle}, "
+                      f"remaining={remaining_count}")
+
+            # Stuck detection
+            for bid in range(self._n_bots):
+                bot_pos_history[bid].append(bot_pos[bid])
+                if len(bot_pos_history[bid]) > STUCK_THRESHOLD:
+                    bot_pos_history[bid] = bot_pos_history[bid][-STUCK_THRESHOLD:]
+                if (len(bot_pos_history[bid]) >= STUCK_THRESHOLD
+                        and bot_task[bid] in ("pick", "deliver", "pre_pick")
+                        and len(set(bot_pos_history[bid])) == 1):
+                    bot_task[bid] = "idle"
+                    bot_target[bid] = None
+                    bot_target_type[bid] = ""
+                    bot_pos_history[bid] = []
+
+            _assign_from_trips()
+
+            # Phase 1: Actions at target
+            action_bots: set[int] = set()
+            for bot_id in range(self._n_bots):
+                cur = bot_pos[bot_id]
+                task = bot_task[bot_id]
+                target = bot_target[bot_id]
+
+                if task in ("pick", "pre_pick") and cur == target and len(bot_inventory[bot_id]) < 3:
+                    item_type = bot_target_type[bot_id]
+                    action_bots.add(bot_id)
+                    bot_actions[bot_id].append(MAPFAction("pick_up", cur, item_type))
+                    bot_inventory[bot_id].append(item_type)
+                    pickup_schedule.append({
+                        "round": round_t, "bot_id": bot_id,
+                        "position": cur, "item_type": item_type,
+                        "order_idx": bot_target_order[bot_id],
+                    })
+                    # Advance to next pickup in trip
+                    bot_pickup_idx[bot_id] += 1
+                    cursor = bot_trip_cursor[bot_id]
+                    if cursor < len(bot_trips[bot_id]):
+                        order_idx, pickups, items, drop_off = bot_trips[bot_id][cursor]
+                        pi = bot_pickup_idx[bot_id]
+                        if pi < len(pickups):
+                            bot_target[bot_id] = pickups[pi]
+                            bot_target_type[bot_id] = items[pi] if pi < len(items) else ""
+                        else:
+                            # All pickups done — deliver
+                            bot_task[bot_id] = "deliver"
+                            bot_target[bot_id] = drop_off
+                            bot_target_type[bot_id] = ""
+                    else:
+                        bot_task[bot_id] = "idle"
+                        bot_target[bot_id] = None
+
+                elif task == "deliver" and cur == target:
+                    remaining = order_items_remaining.get(active_order_idx, [])
+                    has_match = any(item in remaining for item in bot_inventory[bot_id])
+
+                    if has_match:
+                        action_bots.add(bot_id)
+                        bot_actions[bot_id].append(MAPFAction("drop_off", cur))
+
+                        new_inv = []
+                        delivered = 0
+                        for item in bot_inventory[bot_id]:
+                            if item in remaining:
+                                remaining.remove(item)
+                                delivered += 1
+                            else:
+                                new_inv.append(item)
+                        bot_inventory[bot_id] = new_inv
+                        score += delivered
+
+                        dropoff_schedule.append({
+                            "round": round_t, "bot_id": bot_id,
+                            "position": cur, "order_idx": active_order_idx,
+                            "delivered": delivered,
+                        })
+
+                        # Order completion chain
+                        while not remaining and active_order_idx < n_orders:
+                            score += 5
+                            print(f"  ORDER {active_order_idx} COMPLETE at round {round_t} "
+                                  f"(score={score})")
+                            active_order_idx += 1
+                            if active_order_idx >= n_orders:
+                                break
+                            remaining = order_items_remaining.get(active_order_idx, [])
+                            auto_inv = []
+                            for item in bot_inventory[bot_id]:
+                                if item in remaining:
+                                    remaining.remove(item)
+                                    score += 1
+                                else:
+                                    auto_inv.append(item)
+                            bot_inventory[bot_id] = auto_inv
+
+                        # Advance trip cursor
+                        bot_trip_cursor[bot_id] += 1
+                        bot_pickup_idx[bot_id] = 0
+                        bot_task[bot_id] = "idle"
+                        bot_target[bot_id] = None
+
+                        # Reset pre_pick bots for completed orders
+                        for bid2 in range(self._n_bots):
+                            if bid2 == bot_id:
+                                continue
+                            if bot_task[bid2] == "pre_pick" and bot_target_order[bid2] <= active_order_idx:
+                                has_match2 = any(item in order_items_remaining.get(active_order_idx, [])
+                                                 for item in bot_inventory[bid2])
+                                if has_match2:
+                                    bot_task[bid2] = "deliver"
+                                    bot_target[bid2] = _nearest_dropoff(bot_pos[bid2])
+                                else:
+                                    bot_task[bid2] = "idle"
+                                    bot_target[bid2] = None
+                            elif bot_task[bid2] == "pick" and bot_target_order[bid2] < active_order_idx:
+                                bot_task[bid2] = "idle"
+                                bot_target[bid2] = None
+                            elif bot_task[bid2] == "deliver":
+                                new_rem = order_items_remaining.get(active_order_idx, [])
+                                if not any(item in new_rem for item in bot_inventory[bid2]):
+                                    bot_task[bid2] = "idle"
+                                    bot_target[bid2] = None
+                    else:
+                        bot_task[bot_id] = "idle"
+                        bot_target[bot_id] = None
+
+            # Re-assign after Phase 1
+            _assign_from_trips()
+
+            # Phase 2: PIBT
+            targets: dict[int, Pos] = {}
+            urgency_map: dict[int, int] = {}
+            idle_bots: set[int] = set()
+
+            for bot_id in range(self._n_bots):
+                if bot_id in action_bots:
+                    targets[bot_id] = bot_pos[bot_id]
+                    urgency_map[bot_id] = -1
+                    continue
+
+                cur = bot_pos[bot_id]
+                task = bot_task[bot_id]
+                target = bot_target[bot_id]
+
+                # ESCAPE from drop-off area
+                if task != "deliver" and (cur in _dropoff_set or cur in _dropoff_adjacent):
+                    if task in ("pick", "pre_pick") and target:
+                        targets[bot_id] = target
+                    else:
+                        targets[bot_id] = _idle_positions[bot_id % len(_idle_positions)]
+                    urgency_map[bot_id] = -1
+                    continue
+
+                if task == "deliver" and target:
+                    targets[bot_id] = target
+                    urgency_map[bot_id] = 0
+                elif task == "pick" and target:
+                    targets[bot_id] = target
+                    urgency_map[bot_id] = 1
+                elif task == "pre_pick" and target:
+                    targets[bot_id] = target
+                    urgency_map[bot_id] = 2
+                else:
+                    targets[bot_id] = _idle_positions[bot_id % len(_idle_positions)]
+                    urgency_map[bot_id] = 3
+                    idle_bots.add(bot_id)
+
+            next_positions = pibt.resolve(
+                bots=bot_pos,
+                targets=targets,
+                tiebreak_offset=round_t,
+                idle_bots=idle_bots,
+                urgency=urgency_map,
+            )
+
+            # Phase 3: Record movements
+            for bot_id in range(self._n_bots):
+                if bot_id in action_bots:
+                    continue
+                cur = bot_pos[bot_id]
+                next_p = next_positions[bot_id]
+                if next_p != cur:
+                    bot_actions[bot_id].append(MAPFAction(direction_action(cur, next_p), cur))
+                else:
+                    bot_actions[bot_id].append(MAPFAction("wait", cur))
+
+            new_pos: dict[int, Pos] = {}
+            for bot_id in range(self._n_bots):
+                if bot_id in action_bots:
+                    new_pos[bot_id] = bot_pos[bot_id]
+                else:
+                    new_pos[bot_id] = next_positions[bot_id]
+            bot_pos = new_pos
+
+        print(f"\nHybrid: score={score}, orders={active_order_idx}/{n_orders}")
+        delivering = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "deliver")
+        picking = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "pick")
+        idle = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "idle")
+        print(f"Final state: {delivering} delivering, {picking} picking, {idle} idle")
+
+        return bot_actions, pickup_schedule, dropoff_schedule
+
     def _simulate_reactive(
         self,
     ) -> tuple[dict[int, list[MAPFAction]], list[dict], list[dict]]:
         """Simulate with reactive order-by-order strategy + PIBT collision avoidance.
 
         Key features matching reactive bot:
-        - Dropoff throttling: max 2 concurrent deliverers to avoid zone congestion
-        - In-flight accounting: delivering bots' inventory subtracted from needed
+        - ESCAPE urgency for bots at/near drop-off that aren't delivering
+        - Unlimited deliverers for 10+ bots (PIBT handles queuing)
+        - Stuck detection: reset bots stuck for 5+ rounds
+        - Mid-map idle parking instead of far-away spawn
+        - Item batching: pick up nearby items before delivering
         - Closest-pair matching for bot-to-item assignment
         - PIBT handles all collision resolution
         """
@@ -184,6 +545,10 @@ class SequentialMAPFPlanner:
         pickup_schedule: list[dict] = []
         dropoff_schedule: list[dict] = []
 
+        # Stuck detection: track position history per bot
+        bot_pos_history: dict[int, list[Pos]] = {i: [] for i in range(self._n_bots)}
+        STUCK_THRESHOLD = 5
+
         n_orders = len(orders)
         active_order_idx = 0
         order_items_remaining: dict[int, list[str]] = {
@@ -192,8 +557,50 @@ class SequentialMAPFPlanner:
         claimed_items: set[tuple[Pos, str]] = set()
         score = 0
 
-        # Dropoff scheduling: max concurrent deliverers
-        MAX_DELIVERERS = 2 * len(self._drop_off_zones)  # 2 per zone
+        # Dropoff scheduling: unlimited for 10+ bots, throttled for fewer
+        MAX_DELIVERERS = 999 if self._n_bots >= 10 else 2 * len(self._drop_off_zones)
+
+        # Compute mid-map idle position (center of grid, walkable)
+        grid_w = self._grid.width
+        grid_h = self._grid.height
+        mid_x, mid_y = grid_w // 2, grid_h // 2
+        # Find nearest walkable cell to center
+        _idle_target = (mid_x, mid_y)
+        if not self._grid.is_walkable((mid_x, mid_y)):
+            # Search outward for walkable
+            for r in range(1, max(grid_w, grid_h)):
+                found = False
+                for dx in range(-r, r + 1):
+                    for dy in range(-r, r + 1):
+                        nx, ny = mid_x + dx, mid_y + dy
+                        if self._grid.is_walkable((nx, ny)):
+                            _idle_target = (nx, ny)
+                            found = True
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+
+        # Distribute idle bots across multiple positions to avoid clustering
+        _idle_positions: list[Pos] = []
+        # Generate spread-out idle positions along cross-corridors
+        for y in [grid_h // 4, grid_h // 2, 3 * grid_h // 4]:
+            for x in [grid_w // 4, grid_w // 2, 3 * grid_w // 4]:
+                if self._grid.is_walkable((x, y)):
+                    _idle_positions.append((x, y))
+        if not _idle_positions:
+            _idle_positions = [_idle_target]
+
+        # Drop-off zone set for fast lookup
+        _dropoff_set = set(self._drop_off_zones)
+        # Adjacent cells to drop-off zones
+        _dropoff_adjacent: set[Pos] = set()
+        for dz in self._drop_off_zones:
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                adj = (dz[0] + dx, dz[1] + dy)
+                if 0 <= adj[0] < grid_w and 0 <= adj[1] < grid_h:
+                    _dropoff_adjacent.add(adj)
 
         def _nearest_dropoff(pos: Pos) -> Pos:
             best = self._drop_off_zones[0]
@@ -223,8 +630,98 @@ class SequentialMAPFPlanner:
                 return None
             return best_pos, best_dist
 
+        def _try_batch_route(bid: int, first_type: str, first_pos: Pos) -> list[tuple[Pos, str]]:
+            """Try to batch nearby active-order items into a multi-pickup route.
+
+            Returns list of additional (pos, type) stops.
+            If first_type is non-empty, it represents an item being picked (not yet in inventory),
+            so we subtract 1 extra slot for it.
+            Max inventory is 3.
+
+            Strategy: pick up items that are ON THE WAY between first_pos and drop-off.
+            E.g., if heading to butter at (4,2), pick up eggs at (4,3) and flour at (4,5)
+            on the return trip. This adds only 0-2 steps per extra item.
+            """
+            remaining = order_items_remaining.get(active_order_idx, [])
+            if not remaining:
+                return []
+
+            inv_size = len(bot_inventory[bid])
+            # If first_type is set, bot hasn't picked it yet but will
+            slots_left = 3 - inv_size - (1 if first_type else 0)
+            if slots_left <= 0:
+                return []
+
+            # Items still needed (excluding what pickers are targeting + first_type)
+            needed_types: list[str] = list(remaining)
+            # Remove first_type (already assigned)
+            if first_type and first_type in needed_types:
+                needed_types.remove(first_type)
+            for b2 in range(self._n_bots):
+                if b2 == bid:
+                    continue
+                if bot_task[b2] == "pick":
+                    if bot_target_type[b2] in needed_types:
+                        needed_types.remove(bot_target_type[b2])
+                    for rpos, rtype in bot_route[b2]:
+                        if rtype in needed_types:
+                            needed_types.remove(rtype)
+                if bot_task[b2] == "deliver":
+                    for item in bot_inventory[b2]:
+                        if item in needed_types:
+                            needed_types.remove(item)
+
+            route: list[tuple[Pos, str]] = []
+            cur_pos = first_pos
+
+            # Use a larger radius for batching — items along x=4 corridor are
+            # on the return path to drop-off, so extra distance is minimal
+            BATCH_RADIUS = 25
+
+            for _ in range(slots_left):
+                if not needed_types:
+                    break
+                best_item = None
+                best_pos = None
+                best_score = float("inf")
+                seen = set()
+                for nt in needed_types:
+                    if nt in seen:
+                        continue
+                    seen.add(nt)
+                    result = _find_item_near(cur_pos, nt)
+                    if result is None:
+                        continue
+                    item_pos, dist_from_cur = result
+                    if dist_from_cur > BATCH_RADIUS:
+                        continue
+                    # Score: how much EXTRA distance does this detour add?
+                    # Without detour: cur_pos -> drop-off
+                    # With detour: cur_pos -> item_pos -> drop-off
+                    # Extra = (dist_cur_to_item + dist_item_to_dropoff) - dist_cur_to_dropoff
+                    dist_item_to_dropoff = self._engine.distance(
+                        item_pos, _nearest_dropoff(item_pos))
+                    dist_cur_to_dropoff = self._engine.distance(
+                        cur_pos, _nearest_dropoff(cur_pos))
+                    extra_distance = (dist_from_cur + dist_item_to_dropoff) - dist_cur_to_dropoff
+                    # Only batch if detour is small (saves more than it costs)
+                    if extra_distance < 15:
+                        if extra_distance < best_score:
+                            best_score = extra_distance
+                            best_pos = item_pos
+                            best_item = nt
+                if best_item and best_pos:
+                    route.append((best_pos, best_item))
+                    claimed_items.add((best_pos, best_item))
+                    needed_types.remove(best_item)
+                    cur_pos = best_pos
+                else:
+                    break
+
+            return route
+
         def _assign_tasks():
-            """Assign tasks to idle bots with dropoff throttling + next-order pre-pick."""
+            """Assign tasks to idle bots with dropoff throttling + batching + preview pre-pick."""
             nonlocal active_order_idx
             if active_order_idx >= n_orders:
                 return
@@ -236,8 +733,7 @@ class SequentialMAPFPlanner:
                 1 for bid in range(self._n_bots) if bot_task[bid] == "deliver"
             )
 
-            # Bots with items matching active order → deliver (if slots available)
-            # Sort by distance to nearest dropoff (closest first gets priority)
+            # Bots with items matching active order -> deliver (if slots available)
             idle_with_items: list[tuple[int, int]] = []
             for bid in range(self._n_bots):
                 if bot_task[bid] != "idle":
@@ -255,71 +751,232 @@ class SequentialMAPFPlanner:
                     bot_task[bid] = "deliver"
                     bot_target[bid] = _nearest_dropoff(bot_pos[bid])
                     current_deliverers += 1
-                # else: overflow stays idle, will be assigned to pick below
 
-            # Build list of still-needed items (subtract picking bots' target items)
+            # Build list of still-needed items (subtract picking bots' target items + route items)
             needed = list(remaining)
             for bid in range(self._n_bots):
                 if bot_task[bid] == "pick":
                     if bot_target_type[bid] and bot_target_type[bid] in needed:
                         needed.remove(bot_target_type[bid])
+                    for rpos, rtype in bot_route[bid]:
+                        if rtype in needed:
+                            needed.remove(rtype)
+                if bot_task[bid] == "deliver":
+                    for item in bot_inventory[bid]:
+                        if item in needed:
+                            needed.remove(item)
 
-            # Assign items using closest-pair matching (greedy)
+            # Assign items using Hungarian matching (optimal assignment)
             idle_with_room = [
                 bid for bid in range(self._n_bots)
                 if bot_task[bid] == "idle" and len(bot_inventory[bid]) < 3
             ]
 
             if idle_with_room and needed:
-                # Build all (dist, bot, item_idx) pairs for greedy matching
-                # item_idx tracks individual needed entries (handles duplicates)
-                pairs: list[tuple[int, int, int, str, Pos]] = []
-                for bid in idle_with_room:
-                    seen_types: set[str] = set()
-                    for ni, item_type in enumerate(needed):
-                        if item_type in seen_types:
-                            continue  # Same type, same shelf result
-                        seen_types.add(item_type)
+                # De-duplicate needed items by type (group indices)
+                unique_needed: list[tuple[str, list[int]]] = []
+                seen_types: dict[str, int] = {}
+                for ni, item_type in enumerate(needed):
+                    if item_type not in seen_types:
+                        seen_types[item_type] = len(unique_needed)
+                        unique_needed.append((item_type, [ni]))
+                    else:
+                        unique_needed[seen_types[item_type]][1].append(ni)
+
+                # Build item options: for each unique type, find nearest shelf per bot
+                item_options: list[tuple[str, int, Pos | None, dict[int, tuple[Pos, int]]]] = []
+                for item_type, indices in unique_needed:
+                    bot_dists: dict[int, tuple[Pos, int]] = {}
+                    for bid in idle_with_room:
                         result = _find_item_near(bot_pos[bid], item_type)
                         if result is not None:
-                            pos, dist = result
-                            pairs.append((dist, bid, ni, item_type, pos))
+                            bot_dists[bid] = result
+                    item_options.append((item_type, len(indices), None, bot_dists))
 
-                pairs.sort()
-                assigned_bots: set[int] = set()
-                assigned_items: set[int] = set()  # Track which needed indices are taken
-                for dist, bid, ni, item_type, pos in pairs:
-                    if bid in assigned_bots:
-                        continue
-                    # Find first unassigned index for this item_type
-                    target_ni = None
-                    for i, it in enumerate(needed):
-                        if it == item_type and i not in assigned_items:
-                            target_ni = i
+                # Expand to individual item slots for assignment
+                expanded_items: list[tuple[str, int, dict[int, tuple[Pos, int]]]] = []
+                for item_type, count, _, bot_dists in item_options:
+                    for _ in range(count):
+                        expanded_items.append((item_type, _, bot_dists))
+
+                n_bots_avail = len(idle_with_room)
+                n_items = len(expanded_items)
+
+                if n_bots_avail > 0 and n_items > 0:
+                    try:
+                        import numpy as np
+                        from scipy.optimize import linear_sum_assignment
+
+                        # Build cost matrix: bots x items
+                        INF = 9999
+                        cost = np.full((n_bots_avail, n_items), INF, dtype=np.float64)
+                        pos_lookup: dict[tuple[int, int], Pos] = {}  # (bot_idx, item_idx) -> pickup_pos
+
+                        for bi, bid in enumerate(idle_with_room):
+                            for ii, (item_type, _, bot_dists) in enumerate(expanded_items):
+                                if bid in bot_dists:
+                                    pos, dist = bot_dists[bid]
+                                    cost[bi, ii] = dist
+                                    pos_lookup[(bi, ii)] = pos
+
+                        row_ind, col_ind = linear_sum_assignment(cost)
+
+                        for bi, ii in zip(row_ind, col_ind):
+                            if cost[bi, ii] >= INF:
+                                continue
+                            bid = idle_with_room[bi]
+                            item_type = expanded_items[ii][0]
+                            pos = pos_lookup[(bi, ii)]
+                            claimed_items.add((pos, item_type))
+                            bot_task[bid] = "pick"
+                            bot_target[bid] = pos
+                            bot_target_type[bid] = item_type
+                            bot_target_order[bid] = active_order_idx
+
+                            # Try to batch more items into a route
+                            route = _try_batch_route(bid, item_type, pos)
+                            bot_route[bid] = route
+
+                    except ImportError:
+                        # Fallback: greedy matching if scipy unavailable
+                        pairs: list[tuple[int, int, int, str, Pos]] = []
+                        for bid in idle_with_room:
+                            st: set[str] = set()
+                            for ni, item_type in enumerate(needed):
+                                if item_type in st:
+                                    continue
+                                st.add(item_type)
+                                result = _find_item_near(bot_pos[bid], item_type)
+                                if result is not None:
+                                    pos, dist = result
+                                    pairs.append((dist, bid, ni, item_type, pos))
+                        pairs.sort()
+                        assigned_bots_fb: set[int] = set()
+                        assigned_items_fb: set[int] = set()
+                        for dist, bid, ni, item_type, pos in pairs:
+                            if bid in assigned_bots_fb:
+                                continue
+                            target_ni = None
+                            for i, it in enumerate(needed):
+                                if it == item_type and i not in assigned_items_fb:
+                                    target_ni = i
+                                    break
+                            if target_ni is None:
+                                continue
+                            claimed_items.add((pos, item_type))
+                            assigned_items_fb.add(target_ni)
+                            bot_task[bid] = "pick"
+                            bot_target[bid] = pos
+                            bot_target_type[bid] = item_type
+                            bot_target_order[bid] = active_order_idx
+                            assigned_bots_fb.add(bid)
+                            route = _try_batch_route(bid, item_type, pos)
+                            bot_route[bid] = route
+                            if len(assigned_items_fb) >= len(needed):
+                                break
+
+            # --- PREVIEW PRE-PICK: assign remaining idle bots to next order ---
+            # But ONLY if we know the item types (CRITICAL: orders beyond preview are unknown)
+            preview_idx = active_order_idx + 1
+            if preview_idx < n_orders and preview_idx in order_items_remaining:
+                preview_remaining = list(order_items_remaining.get(preview_idx, []))
+                # Subtract items being actively pre-picked for this preview order
+                for bid in range(self._n_bots):
+                    if bot_task[bid] == "pre_pick" and bot_target_order[bid] == preview_idx:
+                        if bot_target_type[bid] in preview_remaining:
+                            preview_remaining.remove(bot_target_type[bid])
+                        for rpos, rtype in bot_route[bid]:
+                            if rtype in preview_remaining:
+                                preview_remaining.remove(rtype)
+                # Subtract items held by idle bots ONLY if not needed for active order
+                active_remaining = list(order_items_remaining.get(active_order_idx, []))
+                for bid in range(self._n_bots):
+                    if bot_task[bid] == "idle" and bot_inventory[bid]:
+                        for item in bot_inventory[bid]:
+                            if item in active_remaining:
+                                # This item is for the active order, don't subtract from preview
+                                active_remaining.remove(item)
+                            elif item in preview_remaining:
+                                # Item not needed for active, must be pre-picked for preview
+                                preview_remaining.remove(item)
+
+                preview_idle = [
+                    bid for bid in range(self._n_bots)
+                    if bot_task[bid] == "idle" and len(bot_inventory[bid]) < 3
+                ]
+
+                if preview_idle and preview_remaining:
+                    pairs2: list[tuple[int, int, int, str, Pos]] = []
+                    for bid in preview_idle:
+                        seen_types2: set[str] = set()
+                        for ni, item_type in enumerate(preview_remaining):
+                            if item_type in seen_types2:
+                                continue
+                            seen_types2.add(item_type)
+                            result = _find_item_near(bot_pos[bid], item_type)
+                            if result is not None:
+                                pos, dist = result
+                                pairs2.append((dist, bid, ni, item_type, pos))
+
+                    pairs2.sort()
+                    assigned_bots2: set[int] = set()
+                    assigned_items2: set[int] = set()
+                    for dist, bid, ni, item_type, pos in pairs2:
+                        if bid in assigned_bots2:
+                            continue
+                        target_ni = None
+                        for i, it in enumerate(preview_remaining):
+                            if it == item_type and i not in assigned_items2:
+                                target_ni = i
+                                break
+                        if target_ni is None:
+                            continue
+                        claimed_items.add((pos, item_type))
+                        assigned_items2.add(target_ni)
+                        bot_task[bid] = "pre_pick"
+                        bot_target[bid] = pos
+                        bot_target_type[bid] = item_type
+                        bot_target_order[bid] = preview_idx
+                        assigned_bots2.add(bid)
+                        if len(assigned_items2) >= len(preview_remaining):
                             break
-                    if target_ni is None:
-                        continue
-                    claimed_items.add((pos, item_type))
-                    assigned_items.add(target_ni)
-                    bot_task[bid] = "pick"
-                    bot_target[bid] = pos
-                    bot_target_type[bid] = item_type
-                    bot_target_order[bid] = active_order_idx
-                    assigned_bots.add(bid)
-                    if len(assigned_items) >= len(needed):
-                        break
+
+            pass  # (no second-preview look-ahead)
 
 
         for round_t in range(self._max_rounds):
             if active_order_idx >= n_orders:
                 break
 
-            if round_t % 50 == 0:
+            if round_t % 50 == 0 or round_t < 5:
                 n_idle = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "idle")
                 n_pick = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "pick")
                 n_deliv = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "deliver")
+                n_pre = sum(1 for bid in range(self._n_bots) if bot_task[bid] == "pre_pick")
+                remaining_count = len(order_items_remaining.get(active_order_idx, []))
                 print(f"  Round {round_t}: order={active_order_idx}, "
-                      f"score={score}, pick/deliv/idle={n_pick}/{n_deliv}/{n_idle}")
+                      f"score={score}, pick/deliv/pre/idle={n_pick}/{n_deliv}/{n_pre}/{n_idle}, "
+                      f"remaining={remaining_count}")
+
+            # Stuck detection: reset bots that haven't moved for STUCK_THRESHOLD rounds
+            for bid in range(self._n_bots):
+                bot_pos_history[bid].append(bot_pos[bid])
+                if len(bot_pos_history[bid]) > STUCK_THRESHOLD:
+                    bot_pos_history[bid] = bot_pos_history[bid][-STUCK_THRESHOLD:]
+                if (len(bot_pos_history[bid]) >= STUCK_THRESHOLD
+                        and bot_task[bid] in ("pick", "deliver", "pre_pick")
+                        and len(set(bot_pos_history[bid])) == 1):
+                    # Bot stuck — release its claims and go idle
+                    if bot_task[bid] in ("pick", "pre_pick"):
+                        key = (bot_target[bid], bot_target_type[bid])
+                        claimed_items.discard(key)
+                        for rpos, rtype in bot_route[bid]:
+                            claimed_items.discard((rpos, rtype))
+                    bot_task[bid] = "idle"
+                    bot_target[bid] = None
+                    bot_target_type[bid] = ""
+                    bot_route[bid] = []
+                    bot_pos_history[bid] = []
 
             # Assign tasks to idle bots
             _assign_tasks()
@@ -332,7 +989,7 @@ class SequentialMAPFPlanner:
                 task = bot_task[bot_id]
                 target = bot_target[bot_id]
 
-                if task == "pick" and cur == target and len(bot_inventory[bot_id]) < 3:
+                if task in ("pick", "pre_pick") and cur == target and len(bot_inventory[bot_id]) < 3:
                     # At pickup position — pick up item
                     item_type = bot_target_type[bot_id]
                     action_bots.add(bot_id)
@@ -343,11 +1000,30 @@ class SequentialMAPFPlanner:
                         "position": cur, "item_type": item_type,
                         "order_idx": bot_target_order[bot_id],
                     })
-                    # Check if there's a 2nd pickup in the route
-                    if bot_route[bot_id]:
+                    if task == "pre_pick":
+                        # Pre-pick done — go idle (hold item for next order)
+                        bot_task[bot_id] = "idle"
+                        bot_target[bot_id] = None
+                        bot_target_type[bot_id] = ""
+                    elif bot_route[bot_id]:
+                        # More pickups in the route
                         next_stop = bot_route[bot_id].pop(0)
                         bot_target[bot_id] = next_stop[0]
                         bot_target_type[bot_id] = next_stop[1]
+                    elif len(bot_inventory[bot_id]) < 3:
+                        # No route remaining, but room for more items — try to batch
+                        # Always try batching — the detour cost check in
+                        # _try_batch_route ensures we only batch if it's worth it
+                        route = _try_batch_route(bot_id, "", cur)
+                        if route:
+                            next_stop = route.pop(0)
+                            bot_target[bot_id] = next_stop[0]
+                            bot_target_type[bot_id] = next_stop[1]
+                            bot_route[bot_id] = route
+                        else:
+                            bot_task[bot_id] = "deliver"
+                            bot_target[bot_id] = _nearest_dropoff(bot_pos[bot_id])
+                            bot_target_type[bot_id] = ""
                     else:
                         # Go deliver
                         bot_task[bot_id] = "deliver"
@@ -391,7 +1067,7 @@ class SequentialMAPFPlanner:
                             if active_order_idx >= n_orders:
                                 break
                             remaining = order_items_remaining.get(active_order_idx, [])
-                            # Auto-deliver from delivering bot
+                            # Auto-deliver from delivering bot ONLY (matches game rules)
                             auto_inv = []
                             for item in bot_inventory[bot_id]:
                                 if item in remaining:
@@ -400,33 +1076,45 @@ class SequentialMAPFPlanner:
                                 else:
                                     auto_inv.append(item)
                             bot_inventory[bot_id] = auto_inv
-                            # Auto-delivery: ONLY the delivering bot (matches simulator)
-                            # Other bots at dropoff must manually drop_off
 
-                        # Reset tasks for all bots (order might have changed)
+                        # Reset this bot
                         bot_task[bot_id] = "idle"
                         bot_target[bot_id] = None
                         # Clear claimed items for new order
                         claimed_items.clear()
                         for bid2 in range(self._n_bots):
-                            if bot_task[bid2] in ("pick", "deliver"):
-                                # Re-evaluate tasks for new order
-                                if bot_task[bid2] == "deliver":
-                                    # Check if still has items for new active order
-                                    new_remaining = order_items_remaining.get(active_order_idx, [])
+                            if bid2 == bot_id:
+                                continue
+                            task2 = bot_task[bid2]
+                            if task2 in ("pick", "deliver", "pre_pick"):
+                                new_remaining = order_items_remaining.get(active_order_idx, [])
+                                if task2 == "deliver":
                                     has_match2 = any(item in new_remaining for item in bot_inventory[bid2])
                                     if not has_match2:
                                         bot_task[bid2] = "idle"
                                         bot_target[bid2] = None
-                                elif bot_task[bid2] == "pick":
-                                    # Check if still picking for active order
+                                elif task2 == "pre_pick":
+                                    if bot_target_order[bid2] <= active_order_idx:
+                                        # Was pre-picking for now-active order
+                                        # If bot has items matching active order, deliver
+                                        has_match2 = any(item in new_remaining for item in bot_inventory[bid2])
+                                        if has_match2:
+                                            bot_task[bid2] = "deliver"
+                                            bot_target[bid2] = _nearest_dropoff(bot_pos[bid2])
+                                            bot_target_type[bid2] = ""
+                                        else:
+                                            bot_task[bid2] = "idle"
+                                            bot_target[bid2] = None
+                                    else:
+                                        # Still pre-picking for future order — keep
+                                        key = (bot_target[bid2], bot_target_type[bid2])
+                                        claimed_items.add(key)
+                                elif task2 == "pick":
                                     if bot_target_order[bid2] < active_order_idx:
-                                        # Was picking for a completed order — redirect
                                         bot_task[bid2] = "idle"
                                         bot_target[bid2] = None
                                         bot_route[bid2] = []
                                     else:
-                                        # Still valid — re-add to claimed
                                         key = (bot_target[bid2], bot_target_type[bid2])
                                         claimed_items.add(key)
                                         for rpos, rtype in bot_route[bid2]:
@@ -436,6 +1124,9 @@ class SequentialMAPFPlanner:
                         bot_task[bot_id] = "idle"
                         bot_target[bot_id] = None
 
+            # Re-assign after deliveries (bots freed in Phase 1 get new tasks immediately)
+            _assign_tasks()
+
             # Phase 2: PIBT for moving bots
             targets: dict[int, Pos] = {}
             urgency_map: dict[int, int] = {}
@@ -444,11 +1135,22 @@ class SequentialMAPFPlanner:
             for bot_id in range(self._n_bots):
                 if bot_id in action_bots:
                     targets[bot_id] = bot_pos[bot_id]
-                    urgency_map[bot_id] = -1  # ESCAPE
+                    urgency_map[bot_id] = -1  # Stay in place (action)
                     continue
 
+                cur = bot_pos[bot_id]
                 task = bot_task[bot_id]
                 target = bot_target[bot_id]
+
+                # ESCAPE: bot at/adjacent to drop-off but NOT delivering → must move away
+                if (task != "deliver"
+                        and (cur in _dropoff_set or cur in _dropoff_adjacent)):
+                    if task in ("pick", "pre_pick") and target:
+                        targets[bot_id] = target
+                    else:
+                        targets[bot_id] = _idle_positions[bot_id % len(_idle_positions)]
+                    urgency_map[bot_id] = -1  # ESCAPE (highest priority)
+                    continue
 
                 if task == "deliver" and target:
                     targets[bot_id] = target
@@ -456,11 +1158,14 @@ class SequentialMAPFPlanner:
                 elif task == "pick" and target:
                     targets[bot_id] = target
                     urgency_map[bot_id] = 1  # PICK_UP
+                elif task == "pre_pick" and target:
+                    targets[bot_id] = target
+                    urgency_map[bot_id] = 2  # PRE_PICK
                 else:
-                    # Idle — go to spawn (allows stacking, clears corridors)
-                    targets[bot_id] = self._spawn_pos
+                    # Idle — distribute across mid-map positions
+                    idle_pos = _idle_positions[bot_id % len(_idle_positions)]
+                    targets[bot_id] = idle_pos
                     urgency_map[bot_id] = 3
-                    idle_bots.add(bot_id)
                     idle_bots.add(bot_id)
 
             next_positions = pibt.resolve(
@@ -507,11 +1212,12 @@ class SequentialMAPFPlanner:
         self,
         trips: list[tuple[int, BotTrip]],
         order_activations: dict[int, int],
+        max_preview_orders: int = 1,
     ) -> dict[int, list[BotWaypoint]]:
         """Build ordered waypoint queue for each bot from trip assignments.
 
         Each trip becomes a sequence: [pickup_1, pickup_2, ..., drop_off].
-        All trips pre-queued — delivery timing handled in _simulate.
+        Limits pre-queuing to active order + max_preview_orders to prevent dead weight.
         """
         queues: dict[int, list[BotWaypoint]] = {i: [] for i in range(self._n_bots)}
 
@@ -520,13 +1226,21 @@ class SequentialMAPFPlanner:
         for order_idx, trip in trips:
             bot_trips.setdefault(trip.bot_id, []).append((order_idx, trip))
 
+        # Determine max order index to pre-queue
+        # For 10+ bots, limit to first 2 orders to reduce dead weight
+        max_order_idx = max_preview_orders  # active(0) + preview(1)
+        if self._n_bots >= 10:
+            max_order_idx = max_preview_orders
+
         for bot_id in range(self._n_bots):
             if bot_id not in bot_trips:
                 continue
-            # Sort by start_round
             sorted_trips = sorted(bot_trips[bot_id], key=lambda x: x[1].start_round)
             for order_idx, trip in sorted_trips:
-                # Add pickup waypoints
+                # Limit pre-queuing: only queue trips for first N orders initially
+                # The _simulate method will dynamically add more as orders complete
+                if order_idx > max_order_idx:
+                    continue
                 for i, pos in enumerate(trip.pickup_positions):
                     item_type = trip.items[i] if i < len(trip.items) else ""
                     queues[bot_id].append(BotWaypoint(
@@ -535,7 +1249,6 @@ class SequentialMAPFPlanner:
                         item_type=item_type,
                         order_idx=order_idx,
                     ))
-                # Add drop-off waypoint
                 queues[bot_id].append(BotWaypoint(
                     position=trip.drop_off,
                     action="drop_off",
@@ -589,8 +1302,10 @@ class SequentialMAPFPlanner:
         # Track bots that perform an action this round (stay in place)
         _dbg_moves = 0
         _dbg_waits = 0
-        MAX_DELIVERERS = 2 * len(self._drop_off_zones)  # 6 for nightmare
+        MAX_DELIVERERS = 999 if self._n_bots >= 10 else 2 * len(self._drop_off_zones)
         score = 0
+        # Dead-weight tracking: rounds since bot picked up items that don't match
+        bot_dead_weight_rounds: dict[int, int] = {i: 0 for i in range(self._n_bots)}
 
         for round_t in range(self._max_rounds):
             if active_order_idx >= n_orders:
@@ -808,6 +1523,12 @@ class SequentialMAPFPlanner:
                     and any(item in remaining for item in bot_inventory[bot_id])
                 )
 
+                # Dead-weight detection: track rounds with non-matching inventory
+                if bot_inventory[bot_id] and not has_deliverable:
+                    bot_dead_weight_rounds[bot_id] += 1
+                else:
+                    bot_dead_weight_rounds[bot_id] = 0
+
                 if has_deliverable:
                     nearest = min(
                         self._drop_off_zones,
@@ -815,6 +1536,15 @@ class SequentialMAPFPlanner:
                     )
                     targets[bot_id] = nearest
                     urgency[bot_id] = 0  # DELIVER
+                elif (bot_inventory[bot_id] and bot_dead_weight_rounds[bot_id] >= 20):
+                    # Dead weight: bot has items for 20+ rounds that don't match
+                    # Route to drop-off anyway — items might match after order transition
+                    nearest = min(
+                        self._drop_off_zones,
+                        key=lambda z: self._engine.distance(bot_pos[bot_id], z),
+                    )
+                    targets[bot_id] = nearest
+                    urgency[bot_id] = 2  # PRE_PICK priority (low)
                 elif cursor >= len(queue):
                     # Idle — park at spawn
                     targets[bot_id] = self._spawn_pos

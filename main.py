@@ -79,10 +79,14 @@ async def run(ws_url: str, config: CoordinatorConfig | None = None, viz: bool = 
                     break
 
             if msg_type == "game_state":
-                if mapf_executor:
+                if mapf_executor and not mapf_executor.plan_exhausted:
                     response = mapf_executor.on_game_state(data)
                     coordinator.on_game_state(data)  # for recon logging
                 else:
+                    if mapf_executor and mapf_executor.plan_exhausted:
+                        logger.info("MAPF plan exhausted at round %s — switching to reactive",
+                                   data.get("round", "?"))
+                        mapf_executor = None  # Stop checking
                     response = coordinator.on_game_state(data)
                 await ws.send(json.dumps(response))
 
@@ -204,6 +208,12 @@ def main() -> None:
         default=None,
         help="Path to MAPF plan JSON for deterministic replay",
     )
+    parser.add_argument(
+        "--shelf-pref",
+        type=str,
+        default=None,
+        help="Path to shelf preference JSON (from adapter_search). Runs reactively with optimized shelf selection.",
+    )
     args = parser.parse_args()
 
     if not args.url:
@@ -224,6 +234,16 @@ def main() -> None:
                 logger.exception("Failed to load config from %s, using default", config_path)
         else:
             logger.warning("Config file %s not found, using default", config_path)
+
+    # Load shelf preference for reactive run with optimized shelf selection
+    if getattr(args, 'shelf_pref', None):
+        shelf_pref_path = Path(args.shelf_pref)
+        if shelf_pref_path.exists():
+            shelf_pref = json.loads(shelf_pref_path.read_text(encoding="utf-8"))
+            if config is None:
+                config = CoordinatorConfig.for_difficulty(20)
+            config.shelf_preference = shelf_pref
+            logger.info("Loaded shelf preference from %s (%d types)", shelf_pref_path, len(shelf_pref))
 
     try:
         asyncio.run(run(args.url, config=config, viz=getattr(args, 'viz', False),

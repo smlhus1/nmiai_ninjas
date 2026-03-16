@@ -71,9 +71,14 @@ class ParallelPlanner:
         # Full action plan: round -> bot_id -> action
         actions: dict[int, dict[int, str]] = {}
 
-        # DON'T reserve spawn at t=0 — all bots stack there, reservation
-        # would block everyone. Instead, let each bot's first path handle it.
-        # Lower ID bots plan first (matching server collision priority).
+        # Spawn stacking: all bots start at same position.
+        # Server processes bots in ID order — low ID moves first.
+        # Reserve spawn for each bot from t=0 until they leave.
+        # Bot i can leave at earliest t=i (must wait for bots 0..i-1 to clear).
+        for i in range(self.n_bots):
+            bot_available_at[i] = i  # Bot i waits i rounds at spawn
+            for t in range(i + 1):
+                reservations.reserve(i, self.spawn, t)
 
         orders = list(self.oq)
         order_idx = 0
@@ -117,7 +122,7 @@ class ParallelPlanner:
                 # Pickup action — AFTER arriving (separate round)
                 arrive_r = start_t + len(path_to_pickup) - 1
                 pickup_r = arrive_r + 1
-                self._set_action_raw(actions, pickup_r, bot_id, "pick_up")
+                self._set_action_raw(actions, pickup_r, bot_id, f"pick_up:{item_type}")
                 reservations.reserve(bot_id, pickup_pos, pickup_r)
 
                 # Plan path to dropoff — starts AFTER pickup

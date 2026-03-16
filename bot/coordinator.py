@@ -218,6 +218,12 @@ class Coordinator:
         # 6.7. Pass config to planner (for deliver_detour_threshold etc.)
         planner = getattr(self._planner, "_reactive", self._planner)
         planner._config = self._config
+        # Pass shelf_map for genome shelf preference (evolutionary search)
+        if not hasattr(self._config, '_shelf_map') and hasattr(self, '_game_logger'):
+            self._config._shelf_map = getattr(self._game_logger, '_shelf_map', {})
+        # Inject shelf preference from config into planner
+        if self._config and getattr(self._config, 'shelf_preference', None):
+            planner._shelf_preference = self._config.shelf_preference
 
         # 7. Plan tasks
         self._assignments = self._planner.plan(world, self._assignments)

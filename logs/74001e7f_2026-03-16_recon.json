@@ -729,7 +729,7 @@
     ]
   ],
   "shelf_map": {
-    "cheese": [
+    "bread": [
       [
         3,
         2
@@ -747,7 +747,7 @@
         5
       ]
     ],
-    "yogurt": [
+    "flour": [
       [
         5,
         2
@@ -763,337 +763,337 @@
       [
         19,
         6
-      ]
-    ],
-    "oats": [
-      [
-        3,
-        3
-      ],
-      [
-        9,
-        6
-      ],
-      [
-        15,
-        3
-      ],
-      [
-        21,
-        6
-      ]
-    ],
-    "cereal": [
-      [
-        5,
-        3
-      ],
-      [
-        7,
-        7
-      ],
-      [
-        17,
-        3
-      ],
-      [
-        19,
-        7
-      ]
-    ],
-    "sugar": [
-      [
-        3,
-        4
-      ],
-      [
-        9,
-        7
-      ],
-      [
-        15,
-        4
-      ],
-      [
-        21,
-        7
-      ]
-    ],
-    "cream": [
-      [
-        5,
-        4
-      ],
-      [
-        7,
-        8
-      ],
-      [
-        17,
-        4
-      ],
-      [
-        19,
-        8
-      ],
-      [
-        3,
-        10
-      ],
-      [
-        7,
-        13
-      ],
-      [
-        15,
-        11
-      ],
-      [
-        19,
-        14
-      ]
-    ],
-    "tomatoes": [
-      [
-        3,
-        5
-      ],
-      [
-        9,
-        8
-      ],
-      [
-        15,
-        5
-      ],
-      [
-        21,
-        8
-      ],
-      [
-        5,
-        10
-      ],
-      [
-        9,
-        13
-      ],
-      [
-        17,
-        11
-      ],
-      [
-        21,
-        14
-      ]
-    ],
-    "lettuce": [
-      [
-        5,
-        5
-      ],
-      [
-        11,
-        2
-      ],
-      [
-        17,
-        5
-      ],
-      [
-        23,
-        2
-      ],
-      [
-        3,
-        11
-      ],
-      [
-        7,
-        14
-      ],
-      [
-        15,
-        12
-      ],
-      [
-        23,
-        10
-      ]
-    ],
-    "pasta": [
-      [
-        3,
-        6
-      ],
-      [
-        13,
-        2
-      ],
-      [
-        15,
-        6
-      ],
-      [
-        25,
-        2
-      ],
-      [
-        5,
-        11
-      ],
-      [
-        9,
-        14
-      ],
-      [
-        17,
-        12
-      ],
-      [
-        25,
-        10
-      ]
-    ],
-    "carrots": [
-      [
-        5,
-        6
-      ],
-      [
-        11,
-        3
-      ],
-      [
-        17,
-        6
-      ],
-      [
-        23,
-        3
-      ],
-      [
-        3,
-        12
-      ],
-      [
-        11,
-        10
-      ],
-      [
-        15,
-        13
-      ],
-      [
-        23,
-        11
       ]
     ],
     "onions": [
       [
         3,
-        7
+        3
       ],
       [
-        13,
-        3
+        9,
+        6
       ],
       [
         15,
-        7
-      ],
-      [
-        25,
         3
       ],
       [
+        21,
+        6
+      ]
+    ],
+    "yogurt": [
+      [
         5,
-        12
+        3
       ],
       [
-        13,
+        7,
+        7
+      ],
+      [
+        17,
+        3
+      ],
+      [
+        19,
+        7
+      ]
+    ],
+    "peppers": [
+      [
+        3,
+        4
+      ],
+      [
+        9,
+        7
+      ],
+      [
+        15,
+        4
+      ],
+      [
+        21,
+        7
+      ]
+    ],
+    "pasta": [
+      [
+        5,
+        4
+      ],
+      [
+        7,
+        8
+      ],
+      [
+        17,
+        4
+      ],
+      [
+        19,
+        8
+      ],
+      [
+        3,
         10
       ],
       [
-        17,
+        7,
         13
-      ],
-      [
-        25,
-        11
-      ]
-    ],
-    "rice": [
-      [
-        5,
-        7
-      ],
-      [
-        11,
-        4
-      ],
-      [
-        17,
-        7
-      ],
-      [
-        23,
-        4
-      ],
-      [
-        3,
-        13
-      ],
-      [
-        11,
-        11
       ],
       [
         15,
-        14
-      ],
-      [
-        23,
-        12
-      ]
-    ],
-    "milk": [
-      [
-        3,
-        8
-      ],
-      [
-        13,
-        4
-      ],
-      [
-        15,
-        8
-      ],
-      [
-        25,
-        4
-      ],
-      [
-        5,
-        13
-      ],
-      [
-        13,
         11
       ],
       [
+        19,
+        14
+      ]
+    ],
+    "bananas": [
+      [
+        3,
+        5
+      ],
+      [
+        9,
+        8
+      ],
+      [
+        15,
+        5
+      ],
+      [
+        21,
+        8
+      ],
+      [
+        5,
+        10
+      ],
+      [
+        9,
+        13
+      ],
+      [
         17,
+        11
+      ],
+      [
+        21,
+        14
+      ]
+    ],
+    "juice": [
+      [
+        5,
+        5
+      ],
+      [
+        11,
+        2
+      ],
+      [
+        17,
+        5
+      ],
+      [
+        23,
+        2
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        7,
         14
       ],
       [
-        25,
+        15,
         12
+      ],
+      [
+        23,
+        10
+      ]
+    ],
+    "lettuce": [
+      [
+        3,
+        6
+      ],
+      [
+        13,
+        2
+      ],
+      [
+        15,
+        6
+      ],
+      [
+        25,
+        2
+      ],
+      [
+        5,
+        11
+      ],
+      [
+        9,
+        14
+      ],
+      [
+        17,
+        12
+      ],
+      [
+        25,
+        10
       ]
     ],
     "butter": [
       [
         5,
+        6
+      ],
+      [
+        11,
+        3
+      ],
+      [
+        17,
+        6
+      ],
+      [
+        23,
+        3
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        11,
+        10
+      ],
+      [
+        15,
+        13
+      ],
+      [
+        23,
+        11
+      ]
+    ],
+    "cream": [
+      [
+        3,
+        7
+      ],
+      [
+        13,
+        3
+      ],
+      [
+        15,
+        7
+      ],
+      [
+        25,
+        3
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        13,
+        10
+      ],
+      [
+        17,
+        13
+      ],
+      [
+        25,
+        11
+      ]
+    ],
+    "tomatoes": [
+      [
+        5,
+        7
+      ],
+      [
+        11,
+        4
+      ],
+      [
+        17,
+        7
+      ],
+      [
+        23,
+        4
+      ],
+      [
+        3,
+        13
+      ],
+      [
+        11,
+        11
+      ],
+      [
+        15,
+        14
+      ],
+      [
+        23,
+        12
+      ]
+    ],
+    "sugar": [
+      [
+        3,
+        8
+      ],
+      [
+        13,
+        4
+      ],
+      [
+        15,
+        8
+      ],
+      [
+        25,
+        4
+      ],
+      [
+        5,
+        13
+      ],
+      [
+        13,
+        11
+      ],
+      [
+        17,
+        14
+      ],
+      [
+        25,
+        12
+      ]
+    ],
+    "cheese": [
+      [
+        5,
         8
       ],
       [
@@ -1125,7 +1125,7 @@
         13
       ]
     ],
-    "peppers": [
+    "oats": [
       [
         7,
         2
@@ -1159,7 +1159,7 @@
         13
       ]
     ],
-    "juice": [
+    "rice": [
       [
         9,
         2
@@ -1191,103 +1191,103 @@
       [
         23,
         14
-      ]
-    ],
-    "apples": [
-      [
-        7,
-        3
-      ],
-      [
-        13,
-        6
-      ],
-      [
-        19,
-        3
-      ],
-      [
-        25,
-        6
-      ],
-      [
-        9,
-        10
-      ],
-      [
-        13,
-        13
-      ],
-      [
-        21,
-        11
-      ],
-      [
-        25,
-        14
-      ]
-    ],
-    "bread": [
-      [
-        9,
-        3
-      ],
-      [
-        11,
-        7
-      ],
-      [
-        21,
-        3
-      ],
-      [
-        23,
-        7
-      ],
-      [
-        7,
-        11
-      ],
-      [
-        11,
-        14
-      ],
-      [
-        19,
-        12
-      ]
-    ],
-    "flour": [
-      [
-        7,
-        4
-      ],
-      [
-        13,
-        7
-      ],
-      [
-        19,
-        4
-      ],
-      [
-        25,
-        7
-      ],
-      [
-        9,
-        11
-      ],
-      [
-        13,
-        14
-      ],
-      [
-        21,
-        12
       ]
     ],
     "eggs": [
+      [
+        7,
+        3
+      ],
+      [
+        13,
+        6
+      ],
+      [
+        19,
+        3
+      ],
+      [
+        25,
+        6
+      ],
+      [
+        9,
+        10
+      ],
+      [
+        13,
+        13
+      ],
+      [
+        21,
+        11
+      ],
+      [
+        25,
+        14
+      ]
+    ],
+    "milk": [
+      [
+        9,
+        3
+      ],
+      [
+        11,
+        7
+      ],
+      [
+        21,
+        3
+      ],
+      [
+        23,
+        7
+      ],
+      [
+        7,
+        11
+      ],
+      [
+        11,
+        14
+      ],
+      [
+        19,
+        12
+      ]
+    ],
+    "carrots": [
+      [
+        7,
+        4
+      ],
+      [
+        13,
+        7
+      ],
+      [
+        19,
+        4
+      ],
+      [
+        25,
+        7
+      ],
+      [
+        9,
+        11
+      ],
+      [
+        13,
+        14
+      ],
+      [
+        21,
+        12
+      ]
+    ],
+    "apples": [
       [
         9,
         4
@@ -1317,7 +1317,7 @@
         13
       ]
     ],
-    "bananas": [
+    "cereal": [
       [
         7,
         5
@@ -1435,13 +1435,12 @@
     {
       "id": "order_0",
       "items_required": [
-        "juice",
-        "cereal",
-        "bananas",
         "eggs",
-        "carrots",
+        "cream",
+        "apples",
+        "milk",
         "juice",
-        "eggs"
+        "apples"
       ],
       "first_seen_round": 0,
       "status_when_seen": "active",
@@ -1451,117 +1450,117 @@
     {
       "id": "order_1",
       "items_required": [
-        "milk",
-        "carrots",
+        "bananas",
+        "onions",
+        "tomatoes",
+        "pasta",
         "peppers",
-        "milk"
+        "cheese"
       ],
       "first_seen_round": 0,
       "status_when_seen": "preview",
-      "activated_round": 64,
+      "activated_round": 46,
       "completed_round": null
     },
     {
       "id": "order_2",
       "items_required": [
-        "oats",
-        "cereal",
-        "apples",
         "yogurt",
-        "pasta",
-        "sugar",
-        "cream"
+        "rice",
+        "peppers",
+        "eggs",
+        "butter",
+        "bread",
+        "sugar"
       ],
-      "first_seen_round": 64,
+      "first_seen_round": 46,
       "status_when_seen": "preview",
-      "activated_round": 75,
+      "activated_round": 76,
       "completed_round": null
     },
     {
       "id": "order_3",
       "items_required": [
-        "rice",
-        "milk",
-        "eggs",
-        "lettuce",
-        "yogurt",
-        "oats"
+        "flour",
+        "carrots",
+        "bananas",
+        "oats",
+        "juice",
+        "cereal",
+        "sugar"
       ],
-      "first_seen_round": 75,
+      "first_seen_round": 76,
       "status_when_seen": "preview",
-      "activated_round": 83,
+      "activated_round": 87,
       "completed_round": null
     },
     {
       "id": "order_4",
       "items_required": [
-        "butter",
-        "onions",
-        "apples",
-        "oats",
+        "lettuce",
+        "lettuce",
         "pasta",
-        "butter",
-        "oats"
+        "peppers",
+        "yogurt",
+        "yogurt",
+        "tomatoes"
       ],
-      "first_seen_round": 83,
+      "first_seen_round": 87,
       "status_when_seen": "preview",
-      "activated_round": 99,
+      "activated_round": 111,
       "completed_round": null
     },
     {
       "id": "order_5",
       "items_required": [
-        "cereal",
-        "peppers",
+        "butter",
+        "rice",
         "tomatoes",
-        "lettuce"
+        "peppers"
       ],
-      "first_seen_round": 99,
+      "first_seen_round": 111,
       "status_when_seen": "preview",
-      "activated_round": 118,
+      "activated_round": 120,
       "completed_round": null
     },
     {
       "id": "order_6",
       "items_required": [
-        "cream",
-        "milk",
         "cereal",
-        "bread",
-        "sugar",
-        "onions"
+        "onions",
+        "butter",
+        "bananas"
       ],
-      "first_seen_round": 118,
+      "first_seen_round": 120,
       "status_when_seen": "preview",
-      "activated_round": 126,
+      "activated_round": 127,
       "completed_round": null
     },
     {
       "id": "order_7",
       "items_required": [
-        "milk",
-        "cheese",
         "carrots",
-        "yogurt",
+        "tomatoes",
         "milk",
-        "yogurt"
+        "oats"
       ],
-      "first_seen_round": 126,
+      "first_seen_round": 127,
       "status_when_seen": "preview",
-      "activated_round": 134,
+      "activated_round": 139,
       "completed_round": null
     },
     {
       "id": "order_8",
       "items_required": [
-        "bread",
+        "oats",
+        "peppers",
+        "cereal",
+        "rice",
         "flour",
-        "juice",
-        "cream",
-        "apples",
-        "sugar"
+        "lettuce",
+        "cereal"
       ],
-      "first_seen_round": 134,
+      "first_seen_round": 139,
       "status_when_seen": "preview",
       "activated_round": 146,
       "completed_round": null
@@ -1569,440 +1568,410 @@
     {
       "id": "order_9",
       "items_required": [
-        "pasta",
-        "yogurt",
-        "bread",
-        "pasta",
-        "apples"
+        "sugar",
+        "lettuce",
+        "rice",
+        "carrots",
+        "peppers",
+        "cheese"
       ],
       "first_seen_round": 146,
       "status_when_seen": "preview",
-      "activated_round": 154,
+      "activated_round": 158,
       "completed_round": null
     },
     {
       "id": "order_10",
       "items_required": [
-        "sugar",
-        "cream",
+        "bananas",
+        "tomatoes",
+        "cheese",
         "pasta",
-        "butter"
+        "carrots",
+        "flour"
       ],
-      "first_seen_round": 154,
+      "first_seen_round": 158,
       "status_when_seen": "preview",
-      "activated_round": 170,
+      "activated_round": 169,
       "completed_round": null
     },
     {
       "id": "order_11",
       "items_required": [
-        "butter",
+        "bread",
         "milk",
-        "yogurt",
-        "juice",
-        "oats"
+        "oats",
+        "milk",
+        "bread",
+        "lettuce",
+        "tomatoes"
       ],
-      "first_seen_round": 170,
+      "first_seen_round": 169,
       "status_when_seen": "preview",
-      "activated_round": 177,
+      "activated_round": 179,
       "completed_round": null
     },
     {
       "id": "order_12",
       "items_required": [
-        "flour",
-        "sugar",
-        "milk",
-        "onions"
+        "lettuce",
+        "onions",
+        "yogurt",
+        "bread",
+        "onions",
+        "bread"
       ],
-      "first_seen_round": 177,
+      "first_seen_round": 179,
       "status_when_seen": "preview",
-      "activated_round": 185,
+      "activated_round": 193,
       "completed_round": null
     },
     {
       "id": "order_13",
       "items_required": [
-        "onions",
-        "rice",
-        "lettuce",
-        "onions",
-        "tomatoes"
+        "peppers",
+        "apples",
+        "flour",
+        "eggs"
       ],
-      "first_seen_round": 185,
+      "first_seen_round": 193,
       "status_when_seen": "preview",
-      "activated_round": 191,
+      "activated_round": 210,
       "completed_round": null
     },
     {
       "id": "order_14",
       "items_required": [
-        "cereal",
-        "juice",
         "tomatoes",
-        "eggs",
+        "bread",
         "sugar",
-        "juice"
+        "rice",
+        "bread"
       ],
-      "first_seen_round": 191,
+      "first_seen_round": 210,
       "status_when_seen": "preview",
-      "activated_round": 200,
+      "activated_round": 225,
       "completed_round": null
     },
     {
       "id": "order_15",
       "items_required": [
-        "tomatoes",
-        "pasta",
-        "flour",
-        "peppers",
-        "juice"
-      ],
-      "first_seen_round": 200,
-      "status_when_seen": "preview",
-      "activated_round": 218,
-      "completed_round": null
-    },
-    {
-      "id": "order_16",
-      "items_required": [
-        "juice",
+        "oats",
+        "cheese",
+        "rice",
         "bananas",
         "cheese",
+        "rice",
         "bananas"
       ],
-      "first_seen_round": 218,
-      "status_when_seen": "preview",
-      "activated_round": 223,
-      "completed_round": null
-    },
-    {
-      "id": "order_17",
-      "items_required": [
-        "peppers",
-        "bread",
-        "juice",
-        "flour",
-        "rice"
-      ],
-      "first_seen_round": 223,
+      "first_seen_round": 225,
       "status_when_seen": "preview",
       "activated_round": 238,
       "completed_round": null
     },
     {
-      "id": "order_18",
+      "id": "order_16",
       "items_required": [
+        "cereal",
         "bread",
-        "cheese",
         "onions",
-        "cheese",
-        "cereal"
+        "yogurt",
+        "milk",
+        "bread"
       ],
       "first_seen_round": 238,
       "status_when_seen": "preview",
-      "activated_round": 249,
+      "activated_round": 251,
+      "completed_round": null
+    },
+    {
+      "id": "order_17",
+      "items_required": [
+        "tomatoes",
+        "yogurt",
+        "bananas",
+        "milk",
+        "flour",
+        "cream",
+        "onions"
+      ],
+      "first_seen_round": 251,
+      "status_when_seen": "preview",
+      "activated_round": 260,
+      "completed_round": null
+    },
+    {
+      "id": "order_18",
+      "items_required": [
+        "oats",
+        "yogurt",
+        "flour",
+        "pasta",
+        "tomatoes",
+        "rice",
+        "cheese"
+      ],
+      "first_seen_round": 260,
+      "status_when_seen": "preview",
+      "activated_round": 277,
       "completed_round": null
     },
     {
       "id": "order_19",
       "items_required": [
         "milk",
-        "yogurt",
-        "juice",
-        "bananas",
-        "cheese",
-        "yogurt"
+        "oats",
+        "butter",
+        "apples",
+        "cereal",
+        "carrots"
       ],
-      "first_seen_round": 249,
+      "first_seen_round": 277,
       "status_when_seen": "preview",
-      "activated_round": 258,
+      "activated_round": 303,
       "completed_round": null
     },
     {
       "id": "order_20",
       "items_required": [
-        "cereal",
-        "cheese",
+        "eggs",
         "butter",
-        "butter"
+        "bread",
+        "lettuce",
+        "cereal",
+        "yogurt",
+        "juice"
       ],
-      "first_seen_round": 258,
+      "first_seen_round": 303,
       "status_when_seen": "preview",
-      "activated_round": 285,
+      "activated_round": 312,
       "completed_round": null
     },
     {
       "id": "order_21",
       "items_required": [
-        "tomatoes",
-        "bananas",
-        "cheese",
-        "rice",
-        "lettuce",
-        "sugar",
-        "sugar"
+        "apples",
+        "peppers",
+        "juice",
+        "pasta"
       ],
-      "first_seen_round": 285,
+      "first_seen_round": 312,
       "status_when_seen": "preview",
-      "activated_round": 296,
+      "activated_round": 320,
       "completed_round": null
     },
     {
       "id": "order_22",
       "items_required": [
-        "pasta",
-        "bananas",
-        "carrots",
-        "onions",
-        "tomatoes"
+        "eggs",
+        "eggs",
+        "apples",
+        "tomatoes",
+        "cheese"
       ],
-      "first_seen_round": 296,
+      "first_seen_round": 320,
       "status_when_seen": "preview",
-      "activated_round": 319,
+      "activated_round": 329,
       "completed_round": null
     },
     {
       "id": "order_23",
       "items_required": [
-        "pasta",
-        "pasta",
-        "peppers",
-        "rice",
         "apples",
-        "cream",
+        "butter",
+        "cereal",
         "bread"
       ],
-      "first_seen_round": 319,
+      "first_seen_round": 329,
       "status_when_seen": "preview",
-      "activated_round": 327,
+      "activated_round": 346,
       "completed_round": null
     },
     {
       "id": "order_24",
       "items_required": [
-        "yogurt",
-        "lettuce",
-        "sugar",
-        "bananas"
+        "cream",
+        "eggs",
+        "oats",
+        "cereal",
+        "flour",
+        "sugar"
       ],
-      "first_seen_round": 327,
+      "first_seen_round": 346,
       "status_when_seen": "preview",
-      "activated_round": 336,
+      "activated_round": 351,
       "completed_round": null
     },
     {
       "id": "order_25",
       "items_required": [
-        "bananas",
+        "yogurt",
+        "juice",
+        "eggs",
+        "butter",
         "bread",
-        "apples",
         "oats"
       ],
-      "first_seen_round": 336,
+      "first_seen_round": 351,
       "status_when_seen": "preview",
-      "activated_round": 344,
+      "activated_round": 365,
       "completed_round": null
     },
     {
       "id": "order_26",
       "items_required": [
-        "cheese",
+        "carrots",
+        "apples",
+        "peppers",
         "eggs",
-        "butter",
-        "yogurt",
-        "pasta"
+        "eggs"
       ],
-      "first_seen_round": 344,
+      "first_seen_round": 365,
       "status_when_seen": "preview",
-      "activated_round": 355,
+      "activated_round": 383,
       "completed_round": null
     },
     {
       "id": "order_27",
       "items_required": [
-        "sugar",
-        "bread",
-        "juice",
-        "sugar",
-        "cereal",
+        "butter",
+        "yogurt",
         "cheese",
-        "apples"
+        "carrots"
       ],
-      "first_seen_round": 355,
+      "first_seen_round": 383,
       "status_when_seen": "preview",
-      "activated_round": 364,
+      "activated_round": 392,
       "completed_round": null
     },
     {
       "id": "order_28",
       "items_required": [
-        "apples",
-        "cereal",
-        "butter",
-        "cheese",
-        "bread"
+        "bananas",
+        "pasta",
+        "eggs",
+        "flour",
+        "peppers"
       ],
-      "first_seen_round": 364,
-      "status_when_seen": "preview",
-      "activated_round": 376,
-      "completed_round": null
-    },
-    {
-      "id": "order_29",
-      "items_required": [
-        "rice",
-        "bread",
-        "rice",
-        "yogurt",
-        "sugar",
-        "tomatoes",
-        "carrots"
-      ],
-      "first_seen_round": 376,
+      "first_seen_round": 392,
       "status_when_seen": "preview",
       "activated_round": 402,
       "completed_round": null
     },
     {
-      "id": "order_30",
+      "id": "order_29",
       "items_required": [
-        "sugar",
-        "lettuce",
+        "oats",
+        "milk",
+        "peppers",
         "eggs",
-        "sugar",
-        "cream"
+        "oats"
       ],
       "first_seen_round": 402,
       "status_when_seen": "preview",
-      "activated_round": 413,
+      "activated_round": 419,
+      "completed_round": null
+    },
+    {
+      "id": "order_30",
+      "items_required": [
+        "cream",
+        "cream",
+        "tomatoes",
+        "milk",
+        "onions",
+        "peppers"
+      ],
+      "first_seen_round": 419,
+      "status_when_seen": "preview",
+      "activated_round": 429,
       "completed_round": null
     },
     {
       "id": "order_31",
       "items_required": [
-        "rice",
-        "pasta",
-        "oats",
-        "butter",
-        "juice",
-        "apples"
+        "eggs",
+        "milk",
+        "milk",
+        "yogurt"
       ],
-      "first_seen_round": 413,
+      "first_seen_round": 429,
       "status_when_seen": "preview",
-      "activated_round": 427,
+      "activated_round": 437,
       "completed_round": null
     },
     {
       "id": "order_32",
       "items_required": [
-        "peppers",
-        "tomatoes",
-        "pasta",
-        "cheese"
+        "cheese",
+        "juice",
+        "flour",
+        "apples"
       ],
-      "first_seen_round": 427,
+      "first_seen_round": 437,
       "status_when_seen": "preview",
-      "activated_round": 438,
+      "activated_round": 445,
       "completed_round": null
     },
     {
       "id": "order_33",
       "items_required": [
-        "lettuce",
-        "rice",
-        "apples",
-        "onions"
+        "juice",
+        "eggs",
+        "butter",
+        "tomatoes",
+        "butter",
+        "tomatoes"
       ],
-      "first_seen_round": 438,
+      "first_seen_round": 445,
       "status_when_seen": "preview",
-      "activated_round": 454,
+      "activated_round": 451,
       "completed_round": null
     },
     {
       "id": "order_34",
       "items_required": [
-        "butter",
-        "yogurt",
-        "oats",
-        "yogurt"
+        "milk",
+        "cream",
+        "tomatoes",
+        "apples",
+        "flour"
       ],
-      "first_seen_round": 454,
+      "first_seen_round": 451,
       "status_when_seen": "preview",
-      "activated_round": 460,
+      "activated_round": 483,
       "completed_round": null
     },
     {
       "id": "order_35",
       "items_required": [
-        "cream",
-        "peppers",
+        "oats",
+        "flour",
+        "apples",
         "juice",
-        "onions",
-        "eggs"
+        "cream",
+        "juice",
+        "apples"
       ],
-      "first_seen_round": 460,
+      "first_seen_round": 483,
       "status_when_seen": "preview",
-      "activated_round": 468,
+      "activated_round": 488,
       "completed_round": null
     },
     {
       "id": "order_36",
       "items_required": [
-        "juice",
-        "sugar",
-        "cereal",
-        "carrots",
         "flour",
-        "juice"
-      ],
-      "first_seen_round": 468,
-      "status_when_seen": "preview",
-      "activated_round": 476,
-      "completed_round": null
-    },
-    {
-      "id": "order_37",
-      "items_required": [
-        "peppers",
-        "juice",
-        "yogurt",
-        "cereal"
-      ],
-      "first_seen_round": 476,
-      "status_when_seen": "preview",
-      "activated_round": 486,
-      "completed_round": null
-    },
-    {
-      "id": "order_38",
-      "items_required": [
-        "juice",
+        "rice",
         "cheese",
-        "eggs",
-        "sugar",
-        "pasta",
-        "bananas"
+        "oats"
       ],
-      "first_seen_round": 486,
-      "status_when_seen": "preview",
-      "activated_round": 496,
-      "completed_round": null
-    },
-    {
-      "id": "order_39",
-      "items_required": [
-        "butter",
-        "eggs",
-        "juice",
-        "cereal"
-      ],
-      "first_seen_round": 496,
+      "first_seen_round": 488,
       "status_when_seen": "preview",
       "activated_round": null,
       "completed_round": null
     }
   ],
   "total_rounds": 500,
-  "final_score": 393
+  "final_score": 384
 }

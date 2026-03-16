@@ -95,6 +95,9 @@ class CoordinatorConfig:
     noise_seed: int = 0
     # Shelf selection bias: 0 = nearest, 1 = random shelf choice
     shelf_randomness: float = 0.0
+    # Genome shelf preference: item_type -> preferred shelf index
+    # Used by evolutionary search to override nearest-item selection
+    shelf_preference: dict = None
 
     @classmethod
     def for_difficulty(cls, n_bots: int) -> CoordinatorConfig:
