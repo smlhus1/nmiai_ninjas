@@ -1457,9 +1457,6 @@ class V2TaskPlanner:
             if mc > 0 and len(active_team) < active_team_max:
                 active_team.add(bot.id)
 
-        # (Rush logic removed — recruiting extra bots kills pipeline.
-        #  The real fix is smarter item ordering, not more bots.)
-
         # Single interleaved loop — all bots in ID order
         for bot in state.bots:
             a = assignments.get(bot.id)
