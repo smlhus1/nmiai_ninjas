@@ -128,12 +128,24 @@ class CoordinatorConfig:
     @classmethod
     def hard(cls) -> CoordinatorConfig:
         """5+ bot preset: larger map, more items, longer distances."""
-        return cls(replay_enabled=False, endgame_threshold=50)
+        return cls(
+            replay_enabled=False,
+            endgame_threshold=50,
+            guidance_enabled=True,
+            guidance_alpha=1.0,
+            guidance_update_interval=3,
+        )
 
     @classmethod
     def expert(cls) -> CoordinatorConfig:
         """10 bot preset: large map, coordination-heavy."""
-        return cls(replay_enabled=False, endgame_threshold=50)
+        return cls(
+            replay_enabled=False,
+            endgame_threshold=50,
+            guidance_enabled=True,
+            guidance_alpha=1.0,
+            guidance_update_interval=3,
+        )
 
     @classmethod
     def nightmare(cls) -> CoordinatorConfig:
@@ -155,7 +167,12 @@ class CoordinatorConfig:
         (drop-off congestion, collisions) not item selection. The reactive
         planner with Hungarian matching already optimizes assignment well.
         """
-        return cls(replay_enabled=False)
+        return cls(
+            replay_enabled=False,
+            guidance_enabled=True,
+            guidance_alpha=1.0,
+            guidance_update_interval=3,
+        )
 
     def mutate(self, temperature: float = 1.0) -> CoordinatorConfig:
         """Return a mutated copy for hill-climbing optimization."""
