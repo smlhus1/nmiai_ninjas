@@ -71,6 +71,12 @@ class CoordinatorConfig:
     # --- Planner version ---
     planner_version: int = 2  # 1=v1 legacy, 2=v2 order-centric
 
+    # --- ML Planner ---
+    use_ml_planner: bool = False  # When True, use MLPlanner instead of V2TaskPlanner
+
+    # --- One-way control ---
+    disable_one_way: bool = False  # When True, disable one-way aisles (nightmare)
+
     # --- Time-space planning ---
     tsp_horizon: int = 30          # Planning horizon (timesteps ahead)
     tsp_max_planning_ms: int = 500  # Time budget for path planning

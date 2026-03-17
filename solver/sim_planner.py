@@ -1,235 +1,214 @@
-"""Simulation-validated planner: plans trips and validates EVERY step in sim.
+"""Sim-in-the-loop planner: uses actual simulator for collision resolution.
 
-Instead of trusting reservation tables, runs the actual simulator step by step.
-When a bot gets blocked by collision, re-plans that bot's path.
+Runs the sim step by step. Each round:
+1. Assign idle bots to trip batches (3 items → deliver → return to spawn)
+2. For each bot, compute next move via BFS avoiding other bots' positions
+3. Step sim, observe actual results, react to collisions
 
-This guarantees sim-accurate collision handling.
+Zero sim-mismatch because we USE the sim directly.
+
+Usage:
+    py -m solver.sim_planner --recon logs/74001e7f_2026-03-16_score274_recon.json
 """
-
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
-import os
-import logging
-from collections import deque, Counter
+from collections import deque
 from pathlib import Path
 
 os.environ["PYTHONUNBUFFERED"] = "1"
-logging.basicConfig(level=logging.WARNING)
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from solver.grid import GameMap, Pos, pickup_positions
+from solver.grid import GameMap, Grid, Pos, pickup_positions
 from solver.pathfinding import DistanceCache
-from solver.orders import OrderQueue, ShelfIndex
+from solver.orders import OrderQueue
 from Simulering.offline.simulator import Simulator
 
-Pos = tuple[int, int]
 
-
-def bfs_next_step(grid, start: Pos, goal: Pos, blocked: set[Pos]) -> Pos:
-    """BFS one step toward goal, avoiding blocked positions. Returns next pos."""
-    if start == goal:
-        return start
+def bfs_path(grid: Grid, start: Pos, end: Pos, obstacles: set[Pos] | None = None) -> list[Pos]:
+    """BFS avoiding obstacles."""
+    if start == end:
+        return [start]
+    blocked = obstacles or set()
     parent = {start: None}
     q = deque([start])
     while q:
         pos = q.popleft()
-        if pos == goal:
-            # Trace back to first step
-            p = pos
-            while parent[p] != start:
-                p = parent[p]
-            return p
+        if pos == end:
+            path = []
+            while pos is not None:
+                path.append(pos)
+                pos = parent[pos]
+            return list(reversed(path))
         for nb in grid.neighbors(pos, respect_one_way=False):
-            if nb not in parent and nb not in blocked:
+            if nb not in parent and (nb not in blocked or nb == end):
                 parent[nb] = pos
                 q.append(nb)
-    return start  # No path — stay
-
-
-def pos_to_action(from_pos: Pos, to_pos: Pos) -> str:
-    dx = to_pos[0] - from_pos[0]
-    dy = to_pos[1] - from_pos[1]
-    if dx == 1: return "move_right"
-    if dx == -1: return "move_left"
-    if dy == 1: return "move_down"
-    if dy == -1: return "move_up"
-    return "wait"
+    if obstacles:
+        return bfs_path(grid, start, end, None)
+    return [start]
 
 
 class SimPlanner:
-    """Plans trips step-by-step, validated by simulator each round."""
-
     def __init__(self, recon_path: str):
         self.gm = GameMap.from_recon(recon_path)
         self.grid = self.gm.grid
-        self.dist_cache = DistanceCache(self.grid)
+        self.dist = DistanceCache(self.grid)
         self.oq = OrderQueue.from_recon(recon_path)
-        self.si = ShelfIndex(self.gm, self.dist_cache)
         self.recon_path = recon_path
         self.n_bots = self.gm.bot_count
         self.spawn = self.gm.spawn
-        self.drop_off_zones = self.gm.drop_off_zones
+        self.max_rounds = 500
+        self.dzs = set(self.gm.drop_off_zones)
+        self.dz_list = list(self.gm.drop_off_zones)
 
-        with open(recon_path) as f:
-            recon = json.load(f)
-        self.order_sequence = recon.get("order_sequence", [])
-        self.shelf_map = recon.get("shelf_map", {})
+    def _best_pickup(self, item_type: str, near: Pos) -> tuple[Pos, Pos] | None:
+        best, best_d = None, 9999
+        for shelf in self.gm.shelf_map.get(item_type, []):
+            for pp in pickup_positions(self.grid, shelf):
+                d = self.dist.distance(near, pp)
+                if d is not None and d < best_d:
+                    best_d, best = d, (shelf, pp)
+        return best
 
-    def run(self) -> dict:
-        """Run planner with sim validation. Returns sim result."""
+    def _nearest_dz(self, pos: Pos) -> Pos:
+        return min(self.dz_list, key=lambda z: self.dist.distance(pos, z) or 999)
+
+    def plan_and_run(self) -> dict:
         sim = Simulator.from_recon_file(self.recon_path)
         state = sim.reset()
 
+        # Build trip queue: batches of 3 items
+        trips: list[list[tuple[str, Pos, Pos]]] = []
+        for order in self.oq:
+            items = list(order.items_required)
+            while items:
+                batch, items = items[:3], items[3:]
+                trip = []
+                cur = self.spawn
+                for it in batch:
+                    r = self._best_pickup(it, cur)
+                    if r:
+                        trip.append((it, r[0], r[1]))
+                        cur = r[1]
+                if trip:
+                    trips.append(trip)
+
         # Bot state
-        bot_goal: dict[int, str] = {}       # "pickup", "deliver", "park"
-        bot_target: dict[int, Pos] = {}
-        bot_item_type: dict[int, str] = {}
-        orders = list(self.oq)
-        order_idx = 0
-        items_assigned: Counter = Counter()  # how many of each type assigned
+        IDLE, PICKUP, DELIVER, RETURN = "idle", "pickup", "deliver", "return"
+        task = {i: IDLE for i in range(self.n_bots)}
+        pick_list: dict[int, list[tuple[str, Pos, Pos]]] = {}
+        pick_idx: dict[int, int] = {}
+        trip_idx = 0
 
-        for r in range(sim.max_rounds):
+        for rnd in range(self.max_rounds):
             sd = state.to_dict()
-            bots = sd["bots"]
-            items = sd["items"]
-            active_order = None
-            for o in sd.get("orders", []):
-                if o.get("status") == "active" and not o.get("complete"):
-                    active_order = o
-                    break
+            bots = {b["id"]: b for b in sd["bots"]}
+            items_map = sd["items"]
+            occupied = {tuple(b["position"]) for b in sd["bots"]}
 
-            remaining = Counter()
-            if active_order:
-                remaining = Counter(active_order["items_required"])
-                for d in active_order.get("items_delivered", []):
-                    if remaining[d] > 0:
-                        remaining[d] -= 1
-
-            # Build occupied set (where bots currently are)
-            occupied = set(tuple(b["position"]) for b in bots)
+            # Assign idle bots
+            for bid in sorted(task, key=lambda b: task[b] != IDLE):
+                if task[bid] == IDLE and trip_idx < len(trips):
+                    pick_list[bid] = trips[trip_idx]
+                    pick_idx[bid] = 0
+                    task[bid] = PICKUP
+                    trip_idx += 1
 
             actions = []
-            new_occupied = set()  # track where bots WILL be after this round
+            for bid in range(self.n_bots):
+                pos = tuple(bots[bid]["position"])
+                inv = bots[bid]["inventory"]
 
-            # Process bots in ID order (matching server collision model)
-            for bot in sorted(bots, key=lambda b: b["id"]):
-                bid = bot["id"]
-                pos = tuple(bot["position"])
-                inv = bot.get("inventory", [])
-
-                # Initialize
-                if bid not in bot_goal:
-                    bot_goal[bid] = "park"
-                    bot_target[bid] = pos
-
-                # Check if pickup completed (inventory grew)
-                if bot_goal[bid] == "pickup" and len(inv) > 0:
-                    if bot_item_type.get(bid) in inv:
-                        # Switch to deliver
-                        dz = min(self.drop_off_zones,
-                                key=lambda z: self.dist_cache.distance(pos, z) or 9999)
-                        bot_goal[bid] = "deliver"
-                        bot_target[bid] = dz
-
-                # At target: execute action
-                if bot_goal[bid] == "pickup" and pos == bot_target[bid]:
-                    # Find adjacent item matching type
-                    item_type = bot_item_type.get(bid)
-                    item_id = None
-                    for item in items:
-                        ipos = tuple(item["position"])
-                        if item.get("type") == item_type and abs(ipos[0]-pos[0]) + abs(ipos[1]-pos[1]) <= 1:
-                            item_id = item["id"]
-                            break
-                    if item_id:
-                        actions.append({"bot": bid, "action": "pick_up", "item_id": item_id})
-                        new_occupied.add(pos)
-                        continue
+                # PICKUP: navigate to items, pick them up one by one
+                if task[bid] == PICKUP:
+                    idx = pick_idx.get(bid, 0)
+                    if idx >= len(pick_list.get(bid, [])):
+                        task[bid] = DELIVER
                     else:
-                        bot_goal[bid] = "park"
+                        it_type, shelf, pp = pick_list[bid][idx]
+                        # Adjacent to shelf? Pick up
+                        if abs(pos[0]-shelf[0]) + abs(pos[1]-shelf[1]) == 1:
+                            item_id = next(
+                                (i["id"] for i in items_map
+                                 if i["type"] == it_type and tuple(i["position"]) == shelf),
+                                None,
+                            )
+                            if item_id:
+                                actions.append({"bot": bid, "action": "pick_up", "item_id": item_id})
+                                pick_idx[bid] = idx + 1
+                                continue
+                        # Navigate to pickup pos
+                        others = occupied - {pos}
+                        path = bfs_path(self.grid, pos, pp, others)
+                        if len(path) >= 2:
+                            actions.append(self._move_action(bid, pos, path[1]))
+                            continue
+                        actions.append({"bot": bid, "action": "wait"})
+                        continue
 
-                if bot_goal[bid] == "deliver" and pos in self.drop_off_zones:
-                    if inv and any(t in remaining for t in inv):
+                # DELIVER: go to drop-off and drop
+                if task[bid] == DELIVER:
+                    if pos in self.dzs:
                         actions.append({"bot": bid, "action": "drop_off"})
-                        bot_goal[bid] = "park"
-                        new_occupied.add(pos)
                         continue
-
-                # Assign new task if parked
-                if bot_goal[bid] == "park" and remaining:
-                    # Find needed item type not fully assigned
-                    for item_type, needed in remaining.items():
-                        if items_assigned[item_type] < needed:
-                            # Find nearest shelf
-                            shelves = self.shelf_map.get(item_type, [])
-                            if shelves:
-                                best_pp = None
-                                best_d = 9999
-                                for sp in shelves:
-                                    sp = tuple(sp)
-                                    for pp in pickup_positions(self.grid, sp):
-                                        d = self.dist_cache.distance(pos, pp) or 9999
-                                        if d < best_d:
-                                            best_d = d
-                                            best_pp = pp
-                                if best_pp:
-                                    bot_goal[bid] = "pickup"
-                                    bot_target[bid] = best_pp
-                                    bot_item_type[bid] = item_type
-                                    items_assigned[item_type] += 1
-                                    break
-
-                # Full inventory without matching items → deliver anyway
-                if bot_goal[bid] == "park" and len(inv) >= 3:
-                    dz = min(self.drop_off_zones,
-                            key=lambda z: self.dist_cache.distance(pos, z) or 9999)
-                    bot_goal[bid] = "deliver"
-                    bot_target[bid] = dz
-
-                # Move toward target
-                target = bot_target.get(bid, pos)
-                if pos != target:
-                    next_pos = bfs_next_step(self.grid, pos, target, set())
-                    if next_pos != pos:
-                        actions.append({"bot": bid, "action": pos_to_action(pos, next_pos)})
-                        new_occupied.add(next_pos)
+                    dz = self._nearest_dz(pos)
+                    others = occupied - {pos}
+                    path = bfs_path(self.grid, pos, dz, others)
+                    if len(path) >= 2:
+                        actions.append(self._move_action(bid, pos, path[1]))
                         continue
+                    actions.append({"bot": bid, "action": "wait"})
+                    continue
 
-                # Default: wait
+                # RETURN: go back to spawn
+                if task[bid] == RETURN:
+                    if pos == self.spawn:
+                        task[bid] = IDLE
+                    else:
+                        others = occupied - {pos}
+                        path = bfs_path(self.grid, pos, self.spawn, others)
+                        if len(path) >= 2:
+                            actions.append(self._move_action(bid, pos, path[1]))
+                            continue
+
+                # IDLE or stuck
                 actions.append({"bot": bid, "action": "wait"})
-                new_occupied.add(pos)
 
-            # Reset items_assigned on order change
-            if active_order:
-                current_id = active_order.get("id")
-                if not hasattr(self, '_last_order_id') or self._last_order_id != current_id:
-                    self._last_order_id = current_id
-                    items_assigned.clear()
-                    # Reset non-deliver bots
-                    for bid in list(bot_goal.keys()):
-                        if bot_goal[bid] != "deliver":
-                            bot_goal[bid] = "park"
-
+            # Step sim
             state, done = sim.step(actions)
+
+            # Post-step: check actual state and update tasks
+            nd = state.to_dict()
+            for bot in nd["bots"]:
+                bid = bot["id"]
+                if task[bid] == DELIVER and len(bot["inventory"]) == 0:
+                    task[bid] = RETURN
+
             if done:
                 break
 
-            if r % 50 == 0:
-                print(f"  R{r}: score={sim._score}, orders={sim._orders_completed}", flush=True)
+            if rnd % 100 == 0:
+                tc = {}
+                for t in task.values():
+                    tc[t] = tc.get(t, 0) + 1
+                print(f"R{rnd}: score={sim._score} trips={trip_idx}/{len(trips)} {tc}",
+                      flush=True)
 
-        result = {
-            "score": sim._score,
-            "orders_completed": sim._orders_completed,
-            "items_delivered": sim._items_delivered,
-            "rounds_used": sim._round,
-        }
-        print(f"\nFinal: score={result['score']}, orders={result['orders_completed']}, "
-              f"rounds={result['rounds_used']}", flush=True)
-        return result
+        print(f"\nFinal: score={sim._score} orders={sim._orders_completed} "
+              f"items={sim._items_delivered} rounds={sim._round}", flush=True)
+        return {"score": sim._score, "orders": sim._orders_completed,
+                "items": sim._items_delivered, "rounds": sim._round}
+
+    @staticmethod
+    def _move_action(bid: int, from_pos: Pos, to_pos: Pos) -> dict:
+        dx, dy = to_pos[0] - from_pos[0], to_pos[1] - from_pos[1]
+        move = {(0,-1): "move_up", (0,1): "move_down",
+                (-1,0): "move_left", (1,0): "move_right"}.get((dx, dy), "wait")
+        return {"bot": bid, "action": move}
 
 
 if __name__ == "__main__":
@@ -240,5 +219,5 @@ if __name__ == "__main__":
 
     t0 = time.time()
     planner = SimPlanner(args.recon)
-    result = planner.run()
-    print(f"Time: {time.time()-t0:.1f}s")
+    result = planner.plan_and_run()
+    print(f"Time: {time.time() - t0:.1f}s")

@@ -132,9 +132,13 @@ class Coordinator:
         # 5. Set up pathfinding — merge shelf positions into grid walls
         if not self._shelf_positions and state.items:
             self._shelf_positions = frozenset(item.position for item in state.items)
-            # Enable one-way aisles for multi-bot (eliminates head-on collisions)
+            # One-way aisles for multi-bot. For nightmare (20 bots),
+            # controlled by config — auto-selection runs both in sim.
             if len(state.bots) >= 2:
-                self._path_engine.enable_one_way(True)
+                use_ow = True
+                if self._config and hasattr(self._config, 'disable_one_way'):
+                    use_ow = not self._config.disable_one_way
+                self._path_engine.enable_one_way(use_ow)
         if self._shelf_positions:
             merged_walls = state.grid.walls | self._shelf_positions
             from bot.models import Grid
@@ -195,8 +199,14 @@ class Coordinator:
             else:
                 logger.info("Replay disabled for this difficulty, staying reactive")
 
-        # 5.7. Swap planner to v2 if configured (first round only)
+        # 5.7. Swap planner to v2 or ML if configured (first round only)
         if (state.round == 0 and self._config
+                and getattr(self._config, 'use_ml_planner', False)):
+            from bot.strategy.ml_planner import MLPlanner
+            if not isinstance(self._planner, MLPlanner):
+                self._planner = MLPlanner()
+                logger.info("ML planner activated")
+        elif (state.round == 0 and self._config
                 and getattr(self._config, 'planner_version', 1) == 2
                 and not isinstance(self._planner, TaskPlanner.__class__)):
             from bot.strategy.v2.planner import V2TaskPlanner
@@ -219,7 +229,7 @@ class Coordinator:
         planner = getattr(self._planner, "_reactive", self._planner)
         planner._config = self._config
         # Pass shelf_map for genome shelf preference (evolutionary search)
-        if not hasattr(self._config, '_shelf_map') and hasattr(self, '_game_logger'):
+        if self._config and not hasattr(self._config, '_shelf_map') and hasattr(self, '_game_logger'):
             self._config._shelf_map = getattr(self._game_logger, '_shelf_map', {})
         # Inject shelf preference from config into planner
         if self._config and getattr(self._config, 'shelf_preference', None):
