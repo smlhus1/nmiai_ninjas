@@ -58,6 +58,15 @@ class MAPFExecutor:
                 return False
         return True
 
+    def get_finished_bot_ids(self) -> set[int]:
+        """Return bot IDs whose plan is exhausted (available for reactive fallback)."""
+        finished = set()
+        for bot_id, actions in self._plan.actions.items():
+            cursor = self._bot_cursor.get(bot_id, 0)
+            if cursor >= len(actions):
+                finished.add(bot_id)
+        return finished
+
     def on_game_state(self, raw: dict) -> dict:
         round_num = raw.get("round", self._round)
         self._round = round_num

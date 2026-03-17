@@ -112,7 +112,19 @@ class ActionResolver:
                     movement_bots[bot.id] = bot
                     # Target the effective_target (eviction set it) or task target
                     escape_target = assignment.effective_target or task.target_pos
-                    movement_targets[bot.id] = escape_target if escape_target not in state.drop_off_zones else bot.position
+                    if escape_target in state.drop_off_zones:
+                        # Pick an adjacent walkable cell to escape to
+                        bx, by = bot.position
+                        escaped = False
+                        for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
+                            np = (bx + dx, by + dy)
+                            if self._path._grid.is_walkable(np) and np not in state.drop_off_zones:
+                                escape_target = np
+                                escaped = True
+                                break
+                        if not escaped:
+                            escape_target = (bx, by - 1)  # fallback: move up
+                    movement_targets[bot.id] = escape_target
                     continue
 
             # This bot needs to move — collect for PIBT

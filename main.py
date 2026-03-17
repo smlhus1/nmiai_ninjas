@@ -81,12 +81,31 @@ async def run(ws_url: str, config: CoordinatorConfig | None = None, viz: bool = 
             if msg_type == "game_state":
                 if mapf_executor and not mapf_executor.plan_exhausted:
                     response = mapf_executor.on_game_state(data)
-                    coordinator.on_game_state(data)  # for recon logging
+                    coordinator.recon_only(data)  # lightweight recon logging
+                    # Per-bot fallback: finished bots get reactive actions
+                    finished = mapf_executor.get_finished_bot_ids()
+                    if finished and not coordinator._mapf_fallback_active:
+                        # Initialize coordinator for reactive fallback
+                        coordinator._mapf_fallback_active = True
+                        logger.info("MAPF per-bot fallback: %d bots finished, activating reactive for them",
+                                   len(finished))
+                    if finished:
+                        reactive = coordinator.on_game_state(data)
+                        # Merge: use reactive actions ONLY for finished bots
+                        mapf_actions = {a["bot"]: a for a in response.get("actions", [])}
+                        for ra in reactive.get("actions", []):
+                            if ra["bot"] in finished:
+                                mapf_actions[ra["bot"]] = ra
+                        response["actions"] = list(mapf_actions.values())
                 else:
                     if mapf_executor and mapf_executor.plan_exhausted:
-                        logger.info("MAPF plan exhausted at round %s — switching to reactive",
+                        logger.info("MAPF plan exhausted at round %s — switching to reactive (fresh state)",
                                    data.get("round", "?"))
-                        mapf_executor = None  # Stop checking
+                        if not getattr(coordinator, '_mapf_fallback_active', False):
+                            old_logger = coordinator._game_logger
+                            coordinator.reset()
+                            coordinator._game_logger = old_logger
+                        mapf_executor = None
                     response = coordinator.on_game_state(data)
                 await ws.send(json.dumps(response))
 

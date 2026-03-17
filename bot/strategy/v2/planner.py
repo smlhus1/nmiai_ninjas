@@ -52,6 +52,8 @@ class V2TaskPlanner:
         # Genome shelf preference: item_type -> preferred shelf position index
         # Overrides nearest-item selection when set. Used by evolutionary search.
         self._shelf_preference: dict[str, int] = {}  # item_type -> shelf_index
+        # Claimed items for _spread_idle_bots (reset each plan() call)
+        self._claimed_items: set[str] = set()
 
     def set_future_orders(self, order_sequence: list[dict]) -> None:
         """Set the full order sequence from recon data for future knowledge."""
@@ -181,6 +183,7 @@ class V2TaskPlanner:
 
         # Step 2: Build claimed items set
         claimed_items = self._build_claimed_set(assignments)
+        self._claimed_items = claimed_items  # sync for _spread_idle_bots
 
         # NIGHTMARE STRATEGY: Queue-based for 20+ bots
         # Fill bots with diverse items → queue on bottom highway → deliver on match

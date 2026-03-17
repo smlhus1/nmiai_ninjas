@@ -97,8 +97,7 @@ class PIBTResolver:
             current = bots[bot_id]
             target = targets.get(bot_id, current)
 
-            # Generate candidates sorted by distance to target
-            # Guidance fn adds congestion-weighted tiebreak
+            # Generate candidates sorted by BFS distance, guidance as tiebreaker
             neighbors = self._get_neighbors(current)
             corridor_set = self._corridors
             guidance = self._guidance_fn

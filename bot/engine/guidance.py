@@ -132,9 +132,9 @@ class GuidanceGraph:
         if start == target:
             return 0.0
 
-        # No weights computed yet — return infinity to force BFS fallback
+        # No weights computed yet — return 0 so guidance is neutral as tiebreaker
         if not self._edge_weight:
-            return 9999.0
+            return 0.0
 
         if target not in self._distance_cache:
             self._distance_cache[target] = self._dijkstra_from_target(target)

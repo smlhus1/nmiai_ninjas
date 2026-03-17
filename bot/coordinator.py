@@ -69,6 +69,8 @@ class Coordinator:
         self._guidance_graph: Any = None
         # Visualization broadcaster (optional, started via start_viz())
         self._viz: Any = None
+        # MAPF per-bot fallback: True when coordinator is handling some bots reactively
+        self._mapf_fallback_active: bool = False
 
     def start_viz(self, port: int = 8765) -> None:
         """Start visualization WebSocket broadcaster."""
@@ -783,6 +785,17 @@ class Coordinator:
                               c["from"], c["expected"], c["actual"])
             if len(self._collision_log) > 20:
                 logger.warning("  ... and %d more", len(self._collision_log) - 20)
+
+    def recon_only(self, raw: dict[str, Any]) -> None:
+        """Lightweight recon logging without running the full pipeline.
+
+        Used during MAPF replay to collect order/shelf data without
+        polluting internal state (assignments, stuck detection, etc.).
+        """
+        state = GameState.from_dict(raw)
+        if not self._shelf_positions and state.items:
+            self._shelf_positions = frozenset(item.position for item in state.items)
+        self._game_logger.on_round(state, self._shelf_positions)
 
     def reset(self) -> None:
         """Reset all state for a new game. Config is preserved."""
