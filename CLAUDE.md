@@ -181,6 +181,11 @@ recon = adapter.finalize(result)  # returns recon dict
 adapter.reset()                   # ready for next game
 ```
 
+## Git workflow
+- **Commit after every implementation** — don't let changes pile up
+- Run `/commit` after Phase 4 of `/experiment` or any verified code change
+- Push regularly to avoid losing work
+
 ## Environment
 - Python 3.13, run with `py` (Windows Python Launcher)
 - `websockets`, `scipy` (Hungarian), `numpy`, `pytest`
