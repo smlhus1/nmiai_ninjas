@@ -20,3 +20,33 @@ __pycache__/
 *.pyc
 *.log
 *.bak
+
+# Large data files
+obj_detect/*.zip
+obj_detect/dataset/
+obj_detect/dataset_multiclass/
+obj_detect/product_images/
+obj_detect/runs/
+obj_detect/weights/
+obj_detect/*.pt
+data/
+models/
+astar-island/data/*.json
+logs/*.json
+output/
+share/
+
+# Build artifacts
+cpp_solver/*.obj
+cpp_solver/*.exe
+astar-island/sim.obj
+astar-island/sim.exe
+
+# Temp/debug
+_mcp_debug.txt
+_nightmare_config.json
+*.txt
+!requirements.txt
+
+# Large plan files
+mapf_plan_*.json

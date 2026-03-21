@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Astar Island Visualizer</title>
+<style>
+  body { background: #1a1a2e; color: #eee; font-family: monospace; margin: 20px; }
+  h1 { color: #e94560; }
+  .controls { margin: 10px 0; }
+  button { background: #e94560; color: white; border: none; padding: 8px 16px; margin: 4px; cursor: pointer; border-radius: 4px; font-family: monospace; }
+  button.active { background: #0f3460; }
+  button:hover { opacity: 0.8; }
+  .view-toggle button { background: #16213e; }
+  .view-toggle button.active { background: #e94560; }
+  canvas { border: 1px solid #333; display: inline-block; margin: 10px 10px 10px 0; cursor: crosshair; }
+  .legend { display: flex; gap: 16px; margin: 10px 0; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-color { width: 16px; height: 16px; border: 1px solid #555; }
+  .stats { background: #16213e; padding: 12px; border-radius: 8px; margin: 10px 0; }
+  .canvases { display: flex; flex-wrap: wrap; }
+  .canvas-container { text-align: center; }
+  .canvas-container h3 { margin: 5px 0; color: #e94560; }
+  .tooltip { background: #16213e; padding: 8px; border-radius: 4px; position: fixed; display: none; border: 1px solid #e94560; z-index: 10; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Astar Island — Round 1</h1>
+<div class="controls">
+  <span>Seed: </span>
+  <button onclick="showSeed(0)" id="btn0" class="active">0</button>
+  <button onclick="showSeed(1)" id="btn1">1</button>
+  <button onclick="showSeed(2)" id="btn2">2</button>
+  <button onclick="showSeed(3)" id="btn3">3</button>
+  <button onclick="showSeed(4)" id="btn4">4</button>
+</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-color" style="background:#1a3a5c"></div>Ocean</div>
+  <div class="legend-item"><div class="legend-color" style="background:#c9b458"></div>Plains</div>
+  <div class="legend-item"><div class="legend-color" style="background:#e94560"></div>Settlement</div>
+  <div class="legend-item"><div class="legend-color" style="background:#f5a623"></div>Port</div>
+  <div class="legend-item"><div class="legend-color" style="background:#888"></div>Ruin</div>
+  <div class="legend-item"><div class="legend-color" style="background:#2d6a4f"></div>Forest</div>
+  <div class="legend-item"><div class="legend-color" style="background:#6b5b3e"></div>Mountain</div>
+</div>
+<div class="stats" id="stats"></div>
+<div class="canvases">
+  <div class="canvas-container">
+    <h3>Initial State (t=0)</h3>
+    <canvas id="canvas-initial" width="600" height="600"></canvas>
+  </div>
+  <div class="canvas-container">
+    <h3>Predicted (t=50) — argmax</h3>
+    <canvas id="canvas-predicted" width="600" height="600"></canvas>
+  </div>
+  <div class="canvas-container">
+    <h3>Confidence</h3>
+    <canvas id="canvas-confidence" width="600" height="600"></canvas>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const CELL = 15;
+const CLASS_COLORS = ['#c9b458', '#e94560', '#f5a623', '#888888', '#2d6a4f', '#6b5b3e'];
+const CLASS_NAMES = ['Empty', 'Settlement', 'Port', 'Ruin', 'Forest', 'Mountain'];
+const INTERNAL_COLORS = {
+  0: '#c9b458', 1: '#e94560', 2: '#f5a623', 3: '#888888',
+  4: '#2d6a4f', 5: '#6b5b3e', 10: '#1a3a5c', 11: '#c9b458'
+};
+const CODE_TO_CLASS = {10: 0, 11: 0, 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5};
+
+let roundData = null;
+let predData = null;
+let currentSeed = 0;
+
+function showSeed(idx) {
+  currentSeed = idx;
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('btn' + i).className = i === idx ? 'active' : '';
+  }
+  render();
+}
+
+function drawGrid(canvasId, cellColorFn, H, W) {
+  const canvas = document.getElementById(canvasId);
+  canvas.width = W * CELL;
+  canvas.height = H * CELL;
+  const ctx = canvas.getContext('2d');
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      ctx.fillStyle = cellColorFn(y, x);
+      ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.strokeRect(x * CELL, y * CELL, CELL, CELL);
+    }
+  }
+  return ctx;
+}
+
+function render() {
+  if (!roundData) return;
+  const state = roundData.initial_states[currentSeed];
+  const grid = state.grid;
+  const settlements = state.settlements;
+  const H = grid.length, W = grid[0].length;
+
+  // Initial state
+  const ctx1 = drawGrid('canvas-initial', (y, x) => INTERNAL_COLORS[grid[y][x]] || '#333', H, W);
+  for (const s of settlements) {
+    ctx1.beginPath();
+    ctx1.arc(s.x * CELL + CELL/2, s.y * CELL + CELL/2, CELL/3, 0, Math.PI * 2);
+    ctx1.fillStyle = s.has_port ? '#f5a623' : '#fff';
+    ctx1.fill();
+  }
+
+  // Predicted state (argmax)
+  const pred = predData ? predData.find(p => p.seed_index === currentSeed) : null;
+  if (pred && pred.argmax_grid) {
+    const ag = pred.argmax_grid;
+    const ctx2 = drawGrid('canvas-predicted', (y, x) => CLASS_COLORS[ag[y][x]] || '#333', H, W);
+
+    // Highlight changes from initial
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const initClass = CODE_TO_CLASS[grid[y][x]] ?? 0;
+        const predClass = ag[y][x];
+        if (initClass !== predClass) {
+          ctx2.strokeStyle = '#fff';
+          ctx2.lineWidth = 2;
+          ctx2.strokeRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+          ctx2.lineWidth = 1;
+        }
+      }
+    }
+  } else {
+    const ctx2 = document.getElementById('canvas-predicted').getContext('2d');
+    ctx2.fillStyle = '#16213e';
+    ctx2.fillRect(0, 0, 600, 600);
+    ctx2.fillStyle = '#888';
+    ctx2.fillText('No predictions yet', 250, 300);
+  }
+
+  // Confidence heatmap
+  if (pred && pred.confidence_grid) {
+    const cg = pred.confidence_grid;
+    drawGrid('canvas-confidence', (y, x) => {
+      const conf = cg[y][x];
+      const r = Math.round(255 * (1 - conf));
+      const g = Math.round(255 * conf);
+      return `rgb(${r}, ${g}, 50)`;
+    }, H, W);
+  } else {
+    const ctx3 = document.getElementById('canvas-confidence').getContext('2d');
+    ctx3.fillStyle = '#16213e';
+    ctx3.fillRect(0, 0, 600, 600);
+    ctx3.fillStyle = '#888';
+    ctx3.fillText('No confidence data', 250, 300);
+  }
+
+  // Stats
+  let statsHtml = `<b>Seed ${currentSeed}</b> — ${settlements.length} settlements`;
+  if (pred) {
+    statsHtml += ` | Score: ${pred.score ?? 'pending'}`;
+    // Count changes
+    if (pred.argmax_grid) {
+      let changes = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const initClass = CODE_TO_CLASS[grid[y][x]] ?? 0;
+          if (initClass !== pred.argmax_grid[y][x]) changes++;
+        }
+      }
+      statsHtml += ` | ${changes} cells changed from initial`;
+    }
+  }
+  document.getElementById('stats').innerHTML = statsHtml;
+}
+
+// Tooltip on hover
+['canvas-initial', 'canvas-predicted', 'canvas-confidence'].forEach(id => {
+  document.getElementById(id).addEventListener('mousemove', (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / CELL);
+    const y = Math.floor((e.clientY - rect.top) / CELL);
+    if (!roundData || x < 0 || y < 0 || x >= 40 || y >= 40) return;
+
+    const grid = roundData.initial_states[currentSeed].grid;
+    const initCode = grid[y][x];
+    const initClass = CODE_TO_CLASS[initCode] ?? 0;
+    const pred = predData ? predData.find(p => p.seed_index === currentSeed) : null;
+
+    let html = `<b>(${x}, ${y})</b><br>Initial: ${CLASS_NAMES[initClass]} (code ${initCode})`;
+    if (pred && pred.argmax_grid) {
+      const predClass = pred.argmax_grid[y][x];
+      const conf = pred.confidence_grid ? pred.confidence_grid[y][x] : '?';
+      html += `<br>Predicted: ${CLASS_NAMES[predClass]} (${(conf * 100).toFixed(0)}%)`;
+      if (initClass !== predClass) html += ' <b style="color:#e94560">CHANGED</b>';
+    }
+
+    const tooltip = document.getElementById('tooltip');
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY + 15) + 'px';
+  });
+  document.getElementById(id).addEventListener('mouseleave', () => {
+    document.getElementById('tooltip').style.display = 'none';
+  });
+});
+
+// Load data
+Promise.all([
+  fetch('../data/astar_round1.json').then(r => r.json()),
+  fetch('../data/astar_predictions.json').then(r => r.json()),
+]).then(([round, preds]) => {
+  roundData = round;
+  predData = preds;
+  render();
+}).catch(err => {
+  document.getElementById('stats').innerHTML =
+    'Start server fra prosjektroten: <code>py -m http.server 8080</code><br>' +
+    'Åpne: <a href="http://localhost:8080/astar-island/viz.html">localhost:8080/astar-island/viz.html</a>';
+});
+</script>
+</body>
+</html>

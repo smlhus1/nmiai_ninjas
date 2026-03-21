@@ -75,7 +75,8 @@ Coordinator (bot/coordinator.py) — owns persistent state, orchestrates pipelin
 | Easy | 12x10 | 1 | `31642503` | — | — | 124 |
 | Medium | 16x12 | 3 | `6fb8097b` | — | — | 151 |
 | Hard | 22x14 | 5 | `8d88a034` | (1,12) | (20,12) | 139 |
-| Nightmare | 30x18 | 20 | `74001e7f` | (1,16) | (28,16) | 15 |
+| Expert | 22x14 | 10 | `515edd5d` | — | — | 118 |
+| Nightmare | 30x18 | 20 | `74001e7f` | (1,16) | (28,16) | 357 |
 
 Leaderboard = SUM of best score across ALL difficulties. Items/orders change daily (midnight UTC), grid structure is fixed per difficulty.
 
@@ -247,6 +248,30 @@ py main.py --mapf <plan> --url "wss://..."          # replay live (381 score)
 py -m solver.planner_v2 --recon <recon>             # plan + validate i sim
 # Når score > 381: capture som MAPF plan og replay live
 ```
+
+## C++ MAPF Planner (`cpp_solver/mapf.cpp`)
+
+### Status
+- Round-by-round sequential planner with reactive item assignment
+- Zone partitioning for nightmare (3 zones, 7/7/6 bots)
+- LNS infrastructure for trip optimization (multi-threaded)
+- **Works**: easy (55), medium (27), nightmare (20) — all sim-verified
+- **Broken**: hard (2) — 5 bots at same spawn with single zone congestion
+
+### Build & Run
+```bash
+cd cpp_solver && build_mapf.bat
+mapf.exe --recon <file> --greedy                    # fast: no LNS
+mapf.exe --recon <file> --iterations 1000           # LNS search
+```
+
+### Known Issues & Learnings
+- No PIBT: uses sequential BFS step — works for 1-3 bots and nightmare (with zones/stagger), fails for hard (5 bots, 1 zone)
+- One-way rules DISABLED — cause oscillation loops with sequential planner
+- Spawn stacking bug fixed: sim does NOT allow stacking, planner must match
+- Claimed positions (not shelves) prevent multi-bot target conflicts; claims released on pickup/stuck
+- Stuck detection: 25 rounds without distance progress → reassign
+- TODO: Port PIBTResolver from solver.cpp for better multi-bot collision resolution
 
 ## MCP documentation
 Challenge docs available via the `nmiai` MCP server. Use `search_docs` tool or read resources like `challenge://scoring` for game mechanics details.
