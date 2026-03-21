@@ -97,13 +97,24 @@
 - **Port blind:** 0% port accuracy across all rounds (ports share keys with non-port cells)
 - **The 3-pt gap to top:** concentrated in Empty/Forest calibration at dist 2-5, NOT settlements
 
+### Fresh eyes round (from Claude Web suggestions, 3 experiments)
+| Experiment | Result | Why |
+|-----------|--------|-----|
+| Observed class in feature key | -1.12 | Fragments cross-seed into 6x more buckets. 4 seeds too sparse. |
+| ABC posterior conditioned on observations | ~0 | Match rate variance too low. Static cells dominate, all runs look alike. |
+| Adaptive viewport targeting (loss hotspots) | +0.15 | Consistent but below threshold. Full grid coverage > targeted. |
+
+### Simulator-based (2 experiments)
+| Experiment | Result | Why |
+|-----------|--------|-----|
+| MC simulator blend (heuristic params) | +0.01 | Heuristic params too coarse. Adds noise not signal. |
+| ABC posterior sampling (rejection) | ~0 | Simulator doesn't match server well enough for conditioning. |
+
 ## Remaining Untested Ideas
 | Idea | Source | Expected | Notes |
 |------|--------|----------|-------|
-| Adaptive viewport selection | viewport research | unknown | Choose repeat viewports AFTER seeing grid queries |
 | Faction/owner clustering | metadata research | unknown | Voronoi territories from owner_id |
-| CNN on local patches | ML research | +1-5 pts | Probably overkill |
-| Full ABC → calibrated MC sim (not heuristic) | sim research | +1-2 pts | Current heuristic params were too coarse. Proper ABC might help |
+| Exact server simulator reverse-engineering | fresh eyes | +3 pts if possible | Would need to match server sim exactly |
 
 ## Key Insight: Stable Round Bottleneck
 - R12=71.0 vs R11=89.6 — both "stable" but R12 has 21% settlement death vs 5%

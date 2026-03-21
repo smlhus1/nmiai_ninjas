@@ -80,6 +80,12 @@ HISTORICAL = [
     {"name": "R13", "vec": np.array([0.0, 0.8, 99.2, 0.0]),
      "gt": "astar-island/data/ground_truth_r13.json",
      "rd": "data/astar_round13.json"},
+    {"name": "R14", "vec": np.array([13.6, 86.3, 12.3, 26.0]),
+     "gt": "astar-island/data/ground_truth_r14.json",
+     "rd": "data/astar_round14.json"},
+    {"name": "R15", "vec": np.array([0.0, 10.0, 90.0, 0.0]),
+     "gt": "astar-island/data/ground_truth_r15.json",
+     "rd": "data/astar_round15.json"},
 ]
 
 
