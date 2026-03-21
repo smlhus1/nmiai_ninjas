@@ -810,6 +810,15 @@ def phase_predict(detail, observations, settlement_stats,
 
                 pred[y, x] = alpha / alpha.sum()
 
+        # Per-class bias correction multipliers (tuned on 9 rounds LOO)
+        # Compensates: Settlement/Forest underestimated, Ruin overestimated
+        CLASS_MULT = np.array([1.05, 1.15, 1.05, 0.95, 1.10, 1.0])
+        for y in range(40):
+            for x in range(40):
+                pred[y, x] *= CLASS_MULT
+                pred[y, x] = np.maximum(pred[y, x], FLOOR)
+                pred[y, x] /= pred[y, x].sum()
+
         predictions[seed] = pred
 
         # Stats
