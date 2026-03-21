@@ -110,6 +110,23 @@
 | MC simulator blend (heuristic params) | +0.01 | Heuristic params too coarse. Adds noise not signal. |
 | ABC posterior sampling (rejection) | ~0 | Simulator doesn't match server well enough for conditioning. |
 
+### Calibration & estimation (4 experiments)
+| Experiment | Result | Why |
+|-----------|--------|-----|
+| Isotonic regression calibration | +0.08 | Biases are real but small. High-volume bins well-calibrated. |
+| Per-cell gradient refinement (KL loss + L2 reg) | +0.23 avg but -5.3 on R4 | Too unstable. Overfits to cross-seed on some rounds. |
+| Empirical Bayes per-group concentration | +0.06 | Right direction but tiny effect. Cross-seed dominates. |
+| Combined EB + per-init-class cs | +0.13 in experiment, REGRESSED in solver | Experiment baseline differs from full solver. Does not reproduce. |
+
+### Simulator-based (2 experiments)
+| Experiment | Result | Why |
+|-----------|--------|-----|
+| MC simulator blend (heuristic params) | +0.01 | Heuristic params too coarse. Adds noise not signal. |
+| ABC posterior sampling (rejection) | ~0 | Match rate variance too low. Static cells dominate. |
+
+## Key Learning: Experiment-to-Solver Gap
+Multiple experiments showed +0.1 to +0.5 improvement but REGRESSED when implemented in solver_v3.py. Root cause: experiments use a slightly different baseline (different feature extraction timing, different cross-seed building, etc.). **Always verify in full solver backtest before declaring victory.**
+
 ## Remaining Untested Ideas
 | Idea | Source | Expected | Notes |
 |------|--------|----------|-------|
