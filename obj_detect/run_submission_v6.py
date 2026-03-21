@@ -14,9 +14,8 @@ import torch
 from PIL import Image
 from ensemble_boxes import weighted_boxes_fusion
 
-# Fix PyTorch 2.6 weights_only=True breaking ultralytics 8.1.0
-_orig_load = torch.load
-torch.load = lambda *args, **kwargs: _orig_load(*args, **{**kwargs, 'weights_only': False})
+# Note: ultralytics 8.1.0 has built-in patch in utils/patches.py
+# that sets weights_only=False for PyTorch 2.6. No monkey-patch needed.
 
 
 def load_models():
@@ -59,7 +58,7 @@ def main():
         for model, imgsz, weight, fname in models:
             # Full image
             results = model(str(img_path), device=device, verbose=False,
-                           conf=0.15, iou=0.6, max_det=300, imgsz=imgsz)
+                           conf=0.001, iou=0.7, max_det=500, imgsz=imgsz)
             boxes, scores, labels = [], [], []
             img_w, img_h = None, None
             for r in results:
@@ -88,7 +87,7 @@ def main():
                         ye, xe = min(y+tile, ih), min(x+tile, iw)
                         if xe-x < 64 or ye-y < 64: continue
                         res = model(np_img[y:ye, x:xe], device=device, verbose=False,
-                                   conf=0.15, iou=0.6, max_det=200, imgsz=imgsz)
+                                   conf=0.001, iou=0.7, max_det=300, imgsz=imgsz)
                         for r in res:
                             if r.boxes is None: continue
                             for i in range(len(r.boxes)):
@@ -104,7 +103,7 @@ def main():
         # WBF fusion
         fb, fs, fl = weighted_boxes_fusion(
             all_boxes, all_scores, all_labels,
-            iou_thr=0.5, skip_box_thr=0.05)
+            iou_thr=0.5, skip_box_thr=0.1)
 
         iw, ih = img_size
         for box, score, label in zip(fb, fs, fl):
