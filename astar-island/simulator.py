@@ -229,7 +229,7 @@ class AstarSimulator:
         ) & (adj_well_fed > 0) & ~self.static_mask
 
         # Expansion probability — very low to match 0.5% empty->settlement over 50 years
-        expand_prob = np.minimum(adj_well_fed * p.expansion_rate, 0.01)
+        expand_prob = np.minimum(adj_well_fed * p.expansion_rate, 0.05)
         expand_rolls = rng.random((self.H, self.W))
         new_settlements = can_expand & (expand_rolls < expand_prob)
 
@@ -423,10 +423,7 @@ class AstarSimulator:
         # Convert to probabilities
         probs = counts.astype(np.float64) / n_runs
 
-        # Floor at 0.01 and renormalize
-        probs = np.maximum(probs, 0.01)
-        probs /= probs.sum(axis=-1, keepdims=True)
-
+        # Return raw probabilities (no floor — callers add their own smoothing)
         return probs
 
 

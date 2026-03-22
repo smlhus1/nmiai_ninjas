@@ -33,7 +33,8 @@ FLOOR = 0.001
 CLASS_NAMES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]
 CODE_TO_CLASS = {10: 0, 11: 0, 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
 
-TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzc0MjAzOTQ0fQ.fK5N9Q-thmwwCTj1uYsGLJhtFGq-S0nA0XU6QhqjiU8"
+# TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzc0MjAzOTQ0fQ.fK5N9Q-thmwwCTj1uYsGLJhtFGq-S0nA0XU6QhqjiU8"
+TOKEN = os.environ.get("ASTAR_TOKEN", "")
 BASE = "https://api.ainm.no"
 
 # 3x3 full-coverage grid (stride 13, viewport 15x15 → overlap 2)
@@ -86,6 +87,21 @@ HISTORICAL = [
     {"name": "R15", "vec": np.array([0.0, 10.0, 90.0, 0.0]),
      "gt": "astar-island/data/ground_truth_r15.json",
      "rd": "data/astar_round15.json"},
+    {"name": "R16", "vec": np.array([0.0, 22.1, 77.9, 0.2]),
+     "gt": "astar-island/data/ground_truth_r16.json",
+     "rd": "data/astar_round16.json"},
+    {"name": "R17", "vec": np.array([0.4, 92.6, 7.4, 2.6]),
+     "gt": "astar-island/data/ground_truth_r17.json",
+     "rd": "data/astar_round17.json"},
+    {"name": "R18", "vec": np.array([31.5, 96.8, 0.0, 43.0]),
+     "gt": "astar-island/data/ground_truth_r18.json",
+     "rd": "data/astar_round18.json"},
+    {"name": "R19", "vec": np.array([0.0, 0.0, 100.0, 0.0]),
+     "gt": "astar-island/data/ground_truth_r19.json",
+     "rd": "data/astar_round19.json"},
+    {"name": "R20", "vec": np.array([0.0, 0.0, 100.0, 0.0]),
+     "gt": "astar-island/data/ground_truth_r20.json",
+     "rd": "data/astar_round20.json"},
 ]
 
 
@@ -421,13 +437,13 @@ def phase_estimate_params(observations, settlement_stats, detail):
     # Prior ranges for 4 key parameters
     param_ranges = {
         "winter_severity": (0.05, 0.25),
-        "expansion_rate": (0.0005, 0.01),
+        "expansion_rate": (0.0001, 0.05),
         "conflict_intensity": (0.02, 0.2),
         "death_to_ruin_rate": (0.02, 0.3),
     }
 
-    n_samples = 500
-    n_mc_per = 3  # MC sims per sample for speed
+    n_samples = 200
+    n_mc_per = 2  # MC sims per sample for speed
     rng = np.random.default_rng(42)
 
     results = []  # (distance, params_dict)
@@ -749,16 +765,42 @@ def phase_predict(detail, observations, settlement_stats,
     - Jeffreys prior: 0.5 per class (always)
     - Historical prior: concentration * mean_distribution
     - Cross-seed model: n_samples * cross_scale * mean_distribution
+    - ABC-calibrated MC sims: SIM_SCALE * sim_distribution
     - Direct observations: real counts
 
     The formula naturally adapts: sparse cross-seed → more weight to historical;
     rich cross-seed → dominates. No hardcoded blend weights needed.
     """
+    from simulator import build_simulator
+
     n_seeds = len(detail["initial_states"])
     predictions = {}
 
     CONCENTRATION = 3.0   # historical prior strength
     CROSS_SCALE = 2.0     # cross-seed weight multiplier (tuned: 1.0→2.0)
+    SIM_SCALE = 5.0       # ABC-calibrated sim weight (tuned: 5 best across rounds)
+
+    # --- Run ABC-calibrated MC sims per seed ---
+    n_mc_per_param = 2
+    sim_probs = {}  # seed -> (40, 40, K) probability tensor
+    if len(accepted_params) > 1:
+        print(f"\n  Running ABC-calibrated MC: {len(accepted_params)} params × {n_mc_per_param} MC × {n_seeds} seeds...")
+        t0 = time.perf_counter()
+        for seed in range(n_seeds):
+            mc_counts = np.zeros((40, 40, K))
+            total_runs = 0
+            for params in accepted_params:
+                sim = build_simulator(detail, seed_index=seed, params=params)
+                for mc_i in range(n_mc_per_param):
+                    final = sim.run(n_years=50, seed=seed * 1000 + mc_i)
+                    for cls in range(K):
+                        mc_counts[:, :, cls] += (final == cls).astype(np.float64)
+                    total_runs += 1
+            sim_probs[seed] = mc_counts / total_runs
+        elapsed = time.perf_counter() - t0
+        print(f"  MC done in {elapsed:.1f}s ({total_runs * n_seeds} sims total)")
+    else:
+        print("\n  Skipping ABC-calibrated MC (no accepted params)")
 
     # Build cross-seed model from ALL observations
     print("\n  Building cross-seed model...")
@@ -802,6 +844,10 @@ def phase_predict(detail, observations, settlement_stats,
                 if cross_data is not None:
                     c_mean, c_n = cross_data
                     alpha += c_mean * c_n * CROSS_SCALE
+
+                # Add ABC-calibrated sim predictions
+                if seed in sim_probs:
+                    alpha += sim_probs[seed][y, x] * SIM_SCALE
 
                 # Add direct observations (real counts)
                 n_obs = obs_n.get((seed, y, x), 0)

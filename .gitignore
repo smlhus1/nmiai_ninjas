@@ -33,8 +33,12 @@ obj_detect/*.onnx
 obj_detect/submissions/
 obj_detect/*.ipynb
 data/
+!data/astar_round*.json
 models/
 astar-island/data/*.json
+!astar-island/data/ground_truth_*.json
+!astar-island/data/obs_*.json
+!astar-island/data/night_log.txt
 logs/*.json
 output/
 share/
