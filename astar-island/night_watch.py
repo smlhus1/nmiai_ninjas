@@ -18,8 +18,18 @@ import numpy as np
 import subprocess
 from datetime import datetime
 from collections import defaultdict
+from pathlib import Path
 
-# TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzc0MjAzOTQ0fQ.fK5N9Q-thmwwCTj1uYsGLJhtFGq-S0nA0XU6QhqjiU8"
+def _load_env():
+    """Load .env file from script directory."""
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().strip().splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_env()
 TOKEN = os.environ.get("ASTAR_TOKEN", "")
 BASE = "https://api.ainm.no"
 LOG = "astar-island/data/night_log.txt"

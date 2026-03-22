@@ -33,7 +33,15 @@ FLOOR = 0.001
 CLASS_NAMES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]
 CODE_TO_CLASS = {10: 0, 11: 0, 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
 
-# TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MDFkN2QwMi0yZTViLTQxNjgtODZiZC02OGFlMjk0M2QzNDEiLCJlbWFpbCI6InN0aWFuNDJAZ21haWwuY29tIiwiZXhwIjoxNzc0MjAzOTQ0fQ.fK5N9Q-thmwwCTj1uYsGLJhtFGq-S0nA0XU6QhqjiU8"
+def _load_env():
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().strip().splitlines():
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_env()
 TOKEN = os.environ.get("ASTAR_TOKEN", "")
 BASE = "https://api.ainm.no"
 
@@ -102,6 +110,9 @@ HISTORICAL = [
     {"name": "R20", "vec": np.array([0.0, 0.0, 100.0, 0.0]),
      "gt": "astar-island/data/ground_truth_r20.json",
      "rd": "data/astar_round20.json"},
+    {"name": "R21", "vec": np.array([0.0, 2.7, 97.3, 0.0]),
+     "gt": "astar-island/data/ground_truth_r21.json",
+     "rd": "data/astar_round21.json"},
 ]
 
 
