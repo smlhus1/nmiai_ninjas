@@ -1,27 +1,24 @@
 # NorgesGruppen Object Detection — NM i AI 2026
 
-Grocery shelf product detection and classification. **Score: 0.8857** on the competition leaderboard.
+Grocery shelf product detection and classification. **Score: 0.8995** on the competition leaderboard.
 
 ## Approach
 
-3-stage pipeline: OIV7 pretrained YOLOv8 -> trained on 100% data -> ONNX ensemble with tiling + WBF.
+OIV7 pretrained YOLOv8l trained on 100% data, exported to ONNX. Single model at 1280px beats ensemble.
 
-### Detection (70% of score)
-- **2x YOLOv8 ONNX ensemble**: YOLOv8l at 1280px + YOLOv8l at 640px
-- **OIV7 pretrain** (Open Images V7, 600 grocery-relevant classes) — much better than COCO for this domain
-- **Tiled inference** on 1280 model: 640x640 tiles with 10% overlap, catches small products
-- **WBF fusion** (iou_thr=0.43, optimized for dense grocery shelves)
-- Trained on **100% of data** (248 images, no val holdout) for maximum learning
+### Best submission (v9, 0.8995)
+- **Single YOLOv8l ONNX** at 1280px — no ensemble, no tiling
+- **OIV7 pretrain** (Open Images V7, 600 grocery-relevant classes) — much better than COCO
+- Trained on **100% of data** (248 images, no val holdout)
+- **conf=0.001**: Low confidence threshold maximizes recall for mAP
+- 356 product categories trained end-to-end
 
-### Classification (30% of score)
-- YOLOv8 multi-class output (356 product categories) trained end-to-end
-- Category IDs map directly to competition annotations
-
-### Key decisions
-- **ONNX over .pt**: PyTorch .pt files failed in sandbox due to Python 3.12->3.11 pickle incompatibility. ONNX eliminates all version issues.
-- **conf=0.001**: Low confidence threshold maximizes recall for mAP evaluation
-- **49K prediction cap**: Undocumented 50K limit in competition sandbox
-- **No copy-paste augmentation in final models**: Caused OOM issues; pseudo-labeling used instead in training pipeline
+### Key learnings
+- **Single model > ensemble** for this task: ensemble confused classification (0.8857) vs single (0.8995)
+- **ONNX mandatory**: .pt files fail in sandbox (Python 3.12->3.11 pickle incompatibility)
+- **Tiling hurt**: Added false positives without improving detection enough
+- **Classifier hurt**: EfficientNet re-classification (91% val acc) reduced score by 0.004
+- **49K prediction cap**: Undocumented limit in sandbox
 
 ## Weights
 
@@ -61,9 +58,8 @@ model.export(format='onnx', imgsz=1280, opset=17)
 Download weights from HuggingFace, place alongside `run.py`, zip:
 ```
 submission.zip
-+-- run.py
-+-- detect_l.onnx    (v7_final_l_1280.onnx)
-+-- detect_l2.onnx   (v7_final_l_640.onnx)
++-- run.py           (run_v9_best.py from HF)
++-- detect_l.onnx    (v7_final_l_1280.onnx from HF)
 ```
 
 ## Score History
@@ -71,8 +67,9 @@ submission.zip
 | Version | Score | Format | Models | Notes |
 |---------|-------|--------|--------|-------|
 | v5 | 0.574 | ONNX | 1x l-640 | Preprocessing mismatch |
-| v7 ONNX | **0.8857** | ONNX | 2x (l-1280 + l-640) | Best submission |
+| v7 ONNX | 0.8857 | ONNX | 2x (l-1280 + l-640) | Ensemble + tiling + WBF |
 | v8 ONNX+cls | 0.8818 | ONNX | 2x + EfficientNet | Classifier hurt score |
+| **v9 single** | **0.8995** | **ONNX** | **1x l-1280** | **Best — single model wins** |
 
 ## Files
 

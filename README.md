@@ -8,15 +8,15 @@ Competition entry for [NM i AI 2026](https://ainm.no) (March 19-22). Three chall
 |-----------|-----------|-------|-------------|
 | **Grocery Bot** | `bot/`, `Simulering/`, `solver/`, `cpp_solver/` | 381 (nightmare) | WebSocket bot navigating a grocery store grid |
 | **Astar Island** | `astar-island/` | **avg ~91** | Terrain prediction with ABC-calibrated simulation |
-| **Object Detection** | `obj_detect/` | **0.8857** | Detect grocery products on store shelves |
+| **Object Detection** | `obj_detect/` | **0.8995** | Detect grocery products on store shelves |
 
 ---
 
 ## Object Detection (NorgesGruppen Data)
 
-**Score: 0.8857** | [Weights on HuggingFace](https://huggingface.co/smlhus/nmiai-grocery-detection) | [Details](obj_detect/README.md)
+**Score: 0.8995** | [Weights on HuggingFace](https://huggingface.co/smlhus/nmiai-grocery-detection) | [Details](obj_detect/README.md)
 
-2x YOLOv8 ONNX ensemble (1280px + 640px) with OIV7 pretrain, tiled inference, and WBF fusion. Trained on 248 shelf images, 356 product categories.
+Single YOLOv8l ONNX at 1280px with OIV7 pretrain. Trained on 100% of 248 shelf images, 356 product categories. Single model beat ensemble.
 
 ```bash
 # Training pipeline (Google Colab with A100)
