@@ -113,6 +113,9 @@ HISTORICAL = [
     {"name": "R21", "vec": np.array([0.0, 2.7, 97.3, 0.0]),
      "gt": "astar-island/data/ground_truth_r21.json",
      "rd": "data/astar_round21.json"},
+    {"name": "R22", "vec": np.array([0.0, 0.0, 100.0, 0.0]),
+     "gt": "astar-island/data/ground_truth_r22.json",
+     "rd": "data/astar_round22.json"},
 ]
 
 
