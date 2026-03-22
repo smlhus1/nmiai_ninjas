@@ -35,7 +35,7 @@ WebSocket bot for the grid-based grocery store challenge. Bots navigate aisles, 
 | Medium | 16x12 | 3 | 151 |
 | Hard | 22x14 | 5 | 139 |
 | Expert | 22x14 | 10 | 118 |
-| Nightmare | 30x18 | 20 | 357 |
+| Nightmare | 30x18 | 20 | 393 |
 
 Leaderboard = sum of best score across all difficulties.
 
