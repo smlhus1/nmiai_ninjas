@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NM i AI 2026 — NorgesGruppen Object Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f8f7f4;
+    color: #2d2a26;
+    line-height: 1.6;
+    font-size: 14px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* Header */
+  .header {
+    background: #2d2a26;
+    color: #f8f7f4;
+    padding: 48px 40px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+    page-break-after: avoid;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #e8c87a;
+  }
+
+  .header .subtitle {
+    font-size: 16px;
+    font-weight: 300;
+    color: #b8b4ae;
+    margin-bottom: 24px;
+  }
+
+  .header .team {
+    font-size: 13px;
+    color: #8a857e;
+    margin-bottom: 20px;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-box {
+    text-align: center;
+  }
+
+  .stat-box .value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #e8c87a;
+  }
+
+  .stat-box .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8a857e;
+  }
+
+  /* Sections */
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 36px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e8c87a;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 10px;
+    color: #4a4540;
+  }
+
+  p { margin-bottom: 12px; }
+
+  code {
+    background: #eae8e4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+  }
+
+  pre {
+    background: #2d2a26;
+    color: #e8c87a;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 12px;
+    margin: 12px 0;
+    break-inside: avoid;
+  }
+
+  /* Architecture diagram */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    break-inside: avoid;
+  }
+
+  .arch-box {
+    background: #2d2a26;
+    color: #f8f7f4;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    min-width: 120px;
+  }
+
+  .arch-box.accent {
+    background: #e8c87a;
+    color: #2d2a26;
+  }
+
+  .arch-arrow {
+    color: #8a857e;
+    font-size: 18px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    break-inside: avoid;
+  }
+
+  th {
+    background: #2d2a26;
+    color: #f8f7f4;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0ddd8;
+    font-size: 13px;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) { background: #f0eeea; }
+  tr.best { background: #f5f0e0; }
+
+  /* Score bars */
+  .score-bar-container {
+    width: 100%;
+    height: 8px;
+    background: #e0ddd8;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .score-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .score-bar.green { background: #5a9a5a; }
+  .score-bar.yellow { background: #c9a84c; }
+  .score-bar.red { background: #b55a5a; }
+  .score-bar.grey { background: #aaa; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge.success { background: #dcedc8; color: #33691e; }
+  .badge.warning { background: #fff3e0; color: #e65100; }
+  .badge.danger { background: #ffcdd2; color: #b71c1c; }
+  .badge.info { background: #e0e7ef; color: #2d2a26; }
+
+  /* Insight cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 4px solid #ccc;
+    break-inside: avoid;
+  }
+
+  .card.success { border-left-color: #5a9a5a; }
+  .card.insight { border-left-color: #e8c87a; }
+  .card.warning { border-left-color: #b55a5a; }
+
+  .card .card-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .card .card-body {
+    font-size: 12px;
+    color: #5a5650;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+    margin: 16px 0;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #d4d0cb;
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    break-inside: avoid;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #d4d0cb;
+    border: 2px solid #f8f7f4;
+  }
+
+  .timeline-item.major::before { background: #e8c87a; }
+  .timeline-item.fail::before { background: #b55a5a; }
+
+  .timeline-item .time {
+    font-size: 11px;
+    color: #8a857e;
+    font-weight: 500;
+  }
+
+  .timeline-item .event {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .timeline-item .detail {
+    font-size: 12px;
+    color: #5a5650;
+  }
+
+  /* Score evolution grid */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .score-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    break-inside: avoid;
+  }
+
+  .score-card .big-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2d2a26;
+  }
+
+  .score-card .big-num.gold { color: #c9a84c; }
+
+  .score-card .desc {
+    font-size: 11px;
+    color: #8a857e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Tools list */
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .tool-item {
+    background: #fff;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    break-inside: avoid;
+  }
+
+  .tool-item strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .tool-item span { color: #8a857e; }
+
+  /* Print */
+  @media print {
+    body { background: white; }
+    .container { padding: 0; }
+    .header { break-after: avoid; }
+    h2 { page-break-before: auto; }
+    .card-grid { break-inside: avoid; }
+  }
+
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="team">NM i AI 2026 &mdash; Team Ninjas</div>
+  <h1>NorgesGruppen Object Detection</h1>
+  <div class="subtitle">Detekter dagligvareprodukter pa butikkhyller med YOLOv8 + ONNX</div>
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="value">0.8995</div>
+      <div class="label">Sluttpoeng</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">~135</div>
+      <div class="label">Plassering (oppgave)</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">8</div>
+      <div class="label">Submissions</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">48t</div>
+      <div class="label">Tidsbruk</div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<h2>Arkitektur</h2>
+<p>Enkelmodell-pipeline: OIV7-pretrent YOLOv8l trent pa 100% av data, eksportert til ONNX for sandbox-kompatibilitet. Enkelmodell slo ensemble.</p>
+
+<div class="arch-flow">
+  <div class="arch-box">248 hyllebilder<br><span style="font-size:10px;color:#8a857e">356 kategorier</span></div>
+  <div class="arch-arrow">&rarr;</div>
+  <div class="arch-box">OIV7 Pretrain<br><span style="font-size:10px;color:#8a857e">600 klasser</span></div>
+  <div class="arch-arrow">&rarr;</div>
+  <div class="arch-box accent">YOLOv8l Trening<br><span style="font-size:10px">1280px, 150 ep</span></div>
+  <div class="arch-arrow">&rarr;</div>
+  <div class="arch-box">ONNX Eksport<br><span style="font-size:10px;color:#8a857e">opset 17</span></div>
+  <div class="arch-arrow">&rarr;</div>
+  <div class="arch-box accent">Sandbox L4<br><span style="font-size:10px">176 MB, 67s</span></div>
+</div>
+
+<h3>Verktoy og infrastruktur</h3>
+<div class="tools-grid">
+  <div class="tool-item"><strong>Google Colab Pro+</strong><span>A100 80GB, torch 2.6.0</span></div>
+  <div class="tool-item"><strong>ultralytics 8.1.0</strong><span>YOLOv8 trening + ONNX eksport</span></div>
+  <div class="tool-item"><strong>OIV7 Pretrain</strong><span>Open Images V7, 600 klasser</span></div>
+  <div class="tool-item"><strong>Claude Code + MCP</strong><span>Automatisert monitoring</span></div>
+  <div class="tool-item"><strong>Google Drive</strong><span>Persistent lagring</span></div>
+  <div class="tool-item"><strong>Discord</strong><span>Notifikasjoner</span></div>
+</div>
+
+<!-- SUBMISSIONS -->
+<h2>Alle submissions</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Versjon</th>
+      <th>Score</th>
+      <th style="width:30%">Visuell</th>
+      <th>Format</th>
+      <th>Tilnaerming</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>v1-v4</td>
+      <td><span class="badge danger">Feilet</span></td>
+      <td><div class="score-bar-container"><div class="score-bar grey" style="width:0%"></div></div></td>
+      <td>.pt</td>
+      <td>Format-feil, exit code 1. Torch 2.10 .pt i torch 2.6 sandbox.</td>
+    </tr>
+    <tr>
+      <td>v5</td>
+      <td>0.574</td>
+      <td><div class="score-bar-container"><div class="score-bar yellow" style="width:57.4%"></div></div></td>
+      <td>ONNX</td>
+      <td>Forste fungerende. Manuell ONNX-inferens med feil preprocessing.</td>
+    </tr>
+    <tr>
+      <td>v6</td>
+      <td><span class="badge danger">Feilet</span></td>
+      <td><div class="score-bar-container"><div class="score-bar grey" style="width:0%"></div></div></td>
+      <td>.pt</td>
+      <td>3x .pt med <code>torch.load</code> patch. Python 3.12&rarr;3.11 pickle-feil.</td>
+    </tr>
+    <tr>
+      <td>v7</td>
+      <td>0.8857</td>
+      <td><div class="score-bar-container"><div class="score-bar green" style="width:88.57%"></div></div></td>
+      <td>ONNX</td>
+      <td>2x ONNX ensemble (l-1280 + l-640), tiling 10%, WBF 0.43.</td>
+    </tr>
+    <tr>
+      <td>v8</td>
+      <td>0.8818</td>
+      <td><div class="score-bar-container"><div class="score-bar green" style="width:88.18%"></div></div></td>
+      <td>ONNX</td>
+      <td>v7 + EfficientNet-B0 classifier (91% acc). Classifier skadet scoren.</td>
+    </tr>
+    <tr class="best">
+      <td><strong>v9</strong></td>
+      <td><strong>0.8995</strong></td>
+      <td><div class="score-bar-container"><div class="score-bar green" style="width:89.95%"></div></div></td>
+      <td>ONNX</td>
+      <td><strong>Single YOLOv8l 1280px. Ingen ensemble, ingen tiling. Best.</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- KEY DISCOVERIES -->
+<h2>Viktigste oppdagelser</h2>
+<div class="card-grid">
+  <div class="card success">
+    <div class="card-title">OIV7 pretrain er gull</div>
+    <div class="card-body">Open Images V7 har 600 klasser inkludert dagligvarer. COCO har bare 80 generelle klasser. Umiddelbar +2% mAP ved bytte. Viktigste enkeltbeslutningen.</div>
+  </div>
+  <div class="card success">
+    <div class="card-title">100% treningsdata</div>
+    <div class="card-body">A droppe 20% val holdout og trene pa alle 248 bilder ga val mAP fra 0.741 til 0.959. Den storste enkeltforbedringen. Med bare 248 bilder teller hvert bilde.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">Enkelmodell > Ensemble</div>
+    <div class="card-body">To modeller som er uenige om kategori forvirrer WBF. En sterk modell (0.8995) slar to (0.8857). Ensemble hjalp deteksjon men skadet klassifisering.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">ONNX er obligatorisk</div>
+    <div class="card-body">.pt filer picklet i Python 3.12 (Colab) laster IKKE i Python 3.11 (sandbox). Etter 4 feilede submissions var ONNX den eneste losningen.</div>
+  </div>
+  <div class="card warning">
+    <div class="card-title">Classifier skadet scoren</div>
+    <div class="card-body">EfficientNet-B0 med 91% val accuracy droppet scoren med 0.004. YOLO bruker spatial kontekst (hyllelayout). Isolerte crops mister denne informasjonen.</div>
+  </div>
+  <div class="card warning">
+    <div class="card-title">Tiling la til stoy</div>
+    <div class="card-body">640x640 tiles pa 1280-modellen ga flere falske positiver enn sanne positiver. For tette hyller overlapper produkter i tile-grensene.</div>
+  </div>
+</div>
+
+<!-- WHAT DIDN'T WORK -->
+<h2>Ting som ikke fungerte</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Tilnaerming</th>
+      <th>Problem</th>
+      <th>Losning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.pt</code> filer i sandbox</td>
+      <td>Python 3.12&rarr;3.11 pickle-inkompatibilitet. Exit code 1.</td>
+      <td>Bruk ONNX. Alltid.</td>
+    </tr>
+    <tr>
+      <td><code>torch.load</code> patch</td>
+      <td>Hverken ultralytics sin eller var custom patch fungerte i sandbox.</td>
+      <td>ONNX trenger ingen patch.</td>
+    </tr>
+    <tr>
+      <td>SKU-110K pretrain</td>
+      <td>Laerte hyllerader, ikke individuelle produkter.</td>
+      <td>OIV7 pretrain.</td>
+    </tr>
+    <tr>
+      <td>1-class detektor + DINOv2</td>
+      <td>Detektor laerte store bokser over hele hyller.</td>
+      <td>Multi-class YOLO (356 kategorier).</td>
+    </tr>
+    <tr>
+      <td>Copy-paste augmentation</td>
+      <td>1400+ instanser per bilde &rarr; OOM-crash ved epoch 140-183.</td>
+      <td>Pseudo-labeling var tryggere.</td>
+    </tr>
+    <tr>
+      <td><code>timm</code> / <code>safetensors</code> import</td>
+      <td>Sikkerhetsscanneren blokkerte begge.</td>
+      <td>Eksporter alt til ONNX.</td>
+    </tr>
+    <tr>
+      <td>FP16 ONNX pa CPU</td>
+      <td><code>half=True</code> ignoreres stille pa CPU-eksport.</td>
+      <td>Eksporter pa GPU, eller aksepter FP32-storrelse.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- SCORE EVOLUTION -->
+<h2>Score-utvikling</h2>
+<div class="score-grid">
+  <div class="score-card">
+    <div class="big-num">0.000</div>
+    <div class="desc">Startpoeng (dag 1-2)</div>
+  </div>
+  <div class="score-card">
+    <div class="big-num gold">0.8995</div>
+    <div class="desc">Sluttpoeng (dag 4)</div>
+  </div>
+  <div class="score-card">
+    <div class="big-num">+57%</div>
+    <div class="desc">Forbedring fra forste sub</div>
+  </div>
+  <div class="score-card">
+    <div class="big-num">248</div>
+    <div class="desc">Treningsbilder</div>
+  </div>
+  <div class="score-card">
+    <div class="big-num">356</div>
+    <div class="desc">Produktkategorier</div>
+  </div>
+  <div class="score-card">
+    <div class="big-num">~12t</div>
+    <div class="desc">Total treningstid (A100)</div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- TIMELINE -->
+<h2>Tidslinje</h2>
+<div class="timeline">
+  <div class="timeline-item fail">
+    <div class="time">19. mars (dag 1)</div>
+    <div class="event">Forste forsok &mdash; 1-class detektor</div>
+    <div class="detail">Laerte hyllerader, ikke produkter. Byttet til multi-class YOLO.</div>
+  </div>
+  <div class="timeline-item fail">
+    <div class="time">20. mars (dag 2)</div>
+    <div class="event">4 feilede submissions</div>
+    <div class="detail">.pt filer fra torch 2.10 krasjer i sandbox (torch 2.6). Kastet bort hele dagskvoten.</div>
+  </div>
+  <div class="timeline-item major">
+    <div class="time">20. mars kveld</div>
+    <div class="event">v5: Forste fungerende submission &mdash; 0.574</div>
+    <div class="detail">ONNX med <code>YOLO("model.onnx")</code>. Feil preprocessing ga lav score.</div>
+  </div>
+  <div class="timeline-item">
+    <div class="time">21. mars morgen</div>
+    <div class="event">Retrent med torch 2.6.0</div>
+    <div class="detail">3 modeller: YOLOv8l 1280, YOLOv8x 640, YOLOv8l 640. OIV7 pretrain.</div>
+  </div>
+  <div class="timeline-item fail">
+    <div class="time">21. mars ettermiddag</div>
+    <div class="event">v6: .pt submission feiler igjen</div>
+    <div class="detail">Python 3.12&rarr;3.11 pickle-inkompatibilitet. Leksjon: ONNX er obligatorisk.</div>
+  </div>
+  <div class="timeline-item major">
+    <div class="time">21. mars kveld</div>
+    <div class="event">v7: ONNX ensemble &mdash; 0.8857</div>
+    <div class="detail">2x ONNX + tiling + WBF 0.43. Massivt hopp fra 0.574.</div>
+  </div>
+  <div class="timeline-item">
+    <div class="time">21. mars natt</div>
+    <div class="event">Treningspipeline: pseudo-labeling + model soup + 100% data</div>
+    <div class="detail">v7 pipeline med 5 steg. 3 seeds for model soup, final modeller pa all data.</div>
+  </div>
+  <div class="timeline-item">
+    <div class="time">22. mars 02:00</div>
+    <div class="event">v7 final modeller ferdig</div>
+    <div class="detail">l-1280: peak 0.959, x-640: 0.934, l-640: 0.921. Alt pa Drive.</div>
+  </div>
+  <div class="timeline-item">
+    <div class="time">22. mars morgen</div>
+    <div class="event">v8: Classifier-eksperiment &mdash; 0.8818</div>
+    <div class="detail">EfficientNet-B0 (91% acc) skadet scoren. Spatial kontekst viktigere enn isolerte crops.</div>
+  </div>
+  <div class="timeline-item major">
+    <div class="time">22. mars formiddag</div>
+    <div class="event">v9: Single model &mdash; 0.8995</div>
+    <div class="detail">Droppet ensemble, tiling, og classifier. En modell, en fil, best score.</div>
+  </div>
+</div>
+
+<!-- WHAT WE'D DO DIFFERENTLY -->
+<h2>Hva vi ville gjort annerledes</h2>
+<div class="card-grid">
+  <div class="card insight">
+    <div class="card-title">ONNX fra dag 1</div>
+    <div class="card-body">Vi kastet 4 submissions pa .pt debugging. ONNX fungerer alltid, uavhengig av Python-versjon. Start her.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">Test i eksakt sandbox-miljo</div>
+    <div class="card-body">Var Colab L4-test (Python 3.12) bestod, men sandbox (3.11) feilet. En Docker-container med riktig Python hadde spart oss dager.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">Enkelmodell forst</div>
+    <div class="card-body">Vi brukte timer pa ensemble-infrastruktur som til slutt skadet scoren. Start enkelt, legg til kompleksitet bare nar det beviser forbedring.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">100% data fra starten</div>
+    <div class="card-body">48 valideringsbilder er for fa til a vaere meningsfulle. Tren pa alt, stol pa at OIV7-pretrain gir nok generalisering.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">Budsjetter submissions</div>
+    <div class="card-body">3 per dag. Test grundig lokalt for du sender. Hvert forsok teller.</div>
+  </div>
+  <div class="card insight">
+    <div class="card-title">Bruk begge datasett riktig</div>
+    <div class="card-body">Produktreferansebilder burde brukes i copy-paste aug under YOLO-trening, ikke som en separat classifier etterpaa.</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center; margin-top:48px; padding-top:24px; border-top:1px solid #d4d0cb; color:#8a857e; font-size:12px;">
+  NM i AI 2026 &mdash; Team Ninjas &mdash; Stian Melhus<br>
+  Kode: <a href="https://github.com/smlhus1/nmiai_ninjas" style="color:#c9a84c">GitHub</a> &mdash;
+  Vekter: <a href="https://huggingface.co/smlhus/nmiai-grocery-detection" style="color:#c9a84c">HuggingFace</a>
+</div>
+
+</div>
+</body>
+</html>
