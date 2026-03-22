@@ -29,6 +29,9 @@ obj_detect/product_images/
 obj_detect/runs/
 obj_detect/weights/
 obj_detect/*.pt
+obj_detect/*.onnx
+obj_detect/submissions/
+obj_detect/*.ipynb
 data/
 models/
 astar-island/data/*.json
